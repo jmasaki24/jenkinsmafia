@@ -1,8 +1,11 @@
-# Battlecode 2020 Scaffold
+# Battlecode 2020 - jenkinsmafia
 
-This is the Battlecode 2020 scaffold, containing an `examplefuncsplayer`. Read https://2020.battlecode.org/getting-started!
+I suppose this can serve as our "notes"/brainstorming document.
 
-### Project Structure
+Not only is it better to write out stuff in pseudocode first, I have some ideas that I have no clue how to implement at the moment, so I will write them down here.
+
+
+## Project Structure
 
 - `README.md`
     This file.

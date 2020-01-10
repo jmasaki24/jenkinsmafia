@@ -1,7 +1,7 @@
-package Matt's Test Bot;
+package zoerbjunk;
 import battlecode.common.*;
 
-public strictfp class RobotPlayer {
+public strictfp class MattsRobotPlayer {
     static RobotController rc;
 
     static Direction[] directions = {
@@ -28,7 +28,7 @@ public strictfp class RobotPlayer {
 
         // This is the RobotController object. You use it to perform actions from this robot,
         // and to get information on its current status.
-        RobotPlayer.rc = rc;
+        MattsRobotPlayer.rc = rc;
 
         turnCount = 0;
 
