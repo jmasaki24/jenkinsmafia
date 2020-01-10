@@ -2,3 +2,29 @@ I suppose this can serve as our "notes"/brainstorming document.
 
 Not only is it better to write out stuff in pseudocode first, I have some ideas that I have no clue how to implement at the moment, so I will write them down here.
 
+
+Suicide Landscapers
+ - HQ has 50 Health, so it can be destroyed by 2 landscapers (25 dirt ea.)
+ - Landscapers could eat away at HQ's protection while collecting dirt to drop on it
+ - Need a way to kill landscapers on demand (Throwing exception/8Mb heap space? - 500 bytecode penalty, but auto explodes)
+ - Also important to find/calculate other HQ location ASAP.
+
+
+Suicide Defense Landscapers
+ - Units die when water reaches them.
+ - Landscapers deposit their dirt contents (up to 25) when they die
+ - Place 8 landscapers in small ring around HQ to die when water gets too near.
+ - EITHER Create a stairway of raised land to position more landscapers and raise walls another 25
+ - OR instead of stairway, use drones to ship landscapers over the rising water onto the walls
+        - ^This would make it *very* difficult for enemy to sabotage walls
+ - CONS - Cost 150 per and need design school for production
+ - Could also remove land covering our own HQ, increasing its health and protecting it.
+
+ Cow Pile on HQ
+  - Assuming HQ has ring defenses on it, a cow would be trapped and unable to leave if placed right on HQ
+  - More cows means a cloud of pollution surrounding HQ, dramatically slows the landscapers
+  - Hopefully prevents them from building defenses as fast.
+  - Cows add 2000 to pollution levels
+  - Cooldown = "base cooldown" * (1 + P/2000)
+  - Robots slowed down by (#ofCows+1) times
+  - One cow-2x slowed, two cow-3x slowed...
