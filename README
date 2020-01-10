@@ -17,14 +17,19 @@ Suicide Defense Landscapers
  - EITHER Create a stairway of raised land to position more landscapers and raise walls another 25
  - OR instead of stairway, use drones to ship landscapers over the rising water onto the walls
         - ^This would make it *very* difficult for enemy to sabotage walls
- - CONS - Cost 150 per and need design school for production
  - Could also remove land covering our own HQ, increasing its health and protecting it.
+ - CONS - Cost 150 per and need design school for production
+        - Doesn't protect our own units from water. Will die quickly if not protected at all.
+
 
  Cow Pile on HQ
-  - Assuming HQ has ring defenses on it, a cow would be trapped and unable to leave if placed right on HQ
-  - More cows means a cloud of pollution surrounding HQ, dramatically slows the landscapers
-  - Hopefully prevents them from building defenses as fast.
-  - Cows add 2000 to pollution levels
-  - Cooldown = "base cooldown" * (1 + P/2000)
-  - Robots slowed down by (#ofCows+1) times
-  - One cow-2x slowed, two cow-3x slowed...
+ - Assuming HQ has ring defenses on it, a cow would be trapped and unable to leave if placed right on HQ
+ - More cows means a cloud of pollution surrounding HQ, dramatically slows the landscapers
+ - Hopefully prevents them from building defenses as fast.
+ - Cows add 2000 to pollution levels
+ - Cooldown = "base cooldown" * (1 + P/2000)
+ - Robots slowed down by (#ofCows+1) times
+ - One cow-2x slowed, two cow-3x slowed...
+ - CONS - HQ's have net guns, so they'd shoot down drones
+        - We need to know exactly where the enemy HQ is
+        - Needs a specific defense strategy by enemy.
