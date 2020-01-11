@@ -1,7 +1,7 @@
 package zoerbjunk;
 import battlecode.common.*;
 
-public strictfp class MattsRobotPlayer {
+public strictfp class RobotPlayer {
     static RobotController rc;
 
     static Direction[] directions = {
@@ -28,7 +28,7 @@ public strictfp class MattsRobotPlayer {
 
         // This is the RobotController object. You use it to perform actions from this robot,
         // and to get information on its current status.
-        MattsRobotPlayer.rc = rc;
+        RobotPlayer.rc = rc;
 
         turnCount = 0;
 
@@ -39,7 +39,7 @@ public strictfp class MattsRobotPlayer {
             try {
                 // Here, we've separated the controls into a different method for each RobotType.
                 // You can add the missing ones or rewrite this into your own control structure.
-                System.out.println("I'm a " + rc.getType() + "! Location " + rc.getLocation());
+                // System.out.println("I'm a " + rc.getType() + "! Location " + rc.getLocation());
                 switch (rc.getType()) {
                     case HQ:                 runHQ();                break;
                     case MINER:              runMiner();             break;
