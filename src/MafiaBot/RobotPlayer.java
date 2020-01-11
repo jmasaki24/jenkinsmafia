@@ -13,6 +13,9 @@ public strictfp class RobotPlayer {
     static Direction myHeading = Direction.WEST;
     static MapLocation lastSeenWater = new MapLocation(-5, -5);
     static MapLocation ourHQ = new MapLocation(-5,-5);
+    static int AttacksSent = 0;
+    static int a = 0;
+
 
     static Direction[] directions = {
             Direction.NORTH,
@@ -97,7 +100,7 @@ public strictfp class RobotPlayer {
     }
 
     static void runMiner() throws GameActionException {
-        tryBlockchain();
+        //tryBlockchain();
         boolean moved = false;
         boolean inventoryFull = rc.getSoupCarrying() >= RobotType.MINER.soupLimit;
         boolean seesAmazon = false;
@@ -169,21 +172,21 @@ public strictfp class RobotPlayer {
                 }
             }
         }
-        /*   //
-        if (!seesAmazon && (lastSeenAmazon.x < 0 || lastSeenAmazon.y < 0)) {
+
+       /* if (!seesAmazon && (lastSeenAmazon.x < 0 || lastSeenAmazon.y < 0)) {
             boolean built = false;
             for (Direction dir : directions) {
                 if (!built) {
-                    if (tryBuild(RobotType.FULLFILLMENTCENTER, randomDirection())) {
+                    if (tryBuild(RobotType.FULFILLMENT_CENTER, randomDirection())) {
                         built = true;
                     }
                 }
             }
-        }
+        }*/
 
         // build schools
 
-*/      System.out.println("Sees HQ" + seesHQ);
+        System.out.println("Sees HQ" + seesHQ);
         System.out.println("Sees School" + seesSchool);
         System.out.println("Doesn't remember school" + (lastSeenSchool.x < 0 || lastSeenSchool.y < 0));
         if (!seesSchool && ((lastSeenSchool.x < 0 || lastSeenSchool.y < 0) && seesHQ)) {
@@ -274,8 +277,11 @@ public strictfp class RobotPlayer {
     }
 
     static void runFulfillmentCenter() throws GameActionException {
-        for (Direction dir : directions) {
-            tryBuild(RobotType.DELIVERY_DRONE, dir);
+        if (a<10) {
+            for (Direction dir : directions) {
+                tryBuild(RobotType.DELIVERY_DRONE, dir);
+            }
+            a++;
         }
     }
 
@@ -301,14 +307,35 @@ public strictfp class RobotPlayer {
                 if(!tryMove(rc.getLocation().directionTo(ourHQ).opposite())){
                     tryMove(randomDirection());
                 }
-            } else{
-
+            } else{ //we are in position, prepare to deliver load
+                MapLocation ourPos = rc.getLocation();
+                Direction dir = randomDirection();
+                int distance = (ourPos.add(dir).distanceSquaredTo(ourHQ));
+                if ((distance > 3) && (distance < 9)){
+                    rc.depositDirt(dir);
+                    tryMove(dir);
+                }else{
+                    if(rc.canDigDirt(dir)){
+                        rc.digDirt(dir);
+                    }
+                }
             }
+        }
+
+        if ((rc.getDirtCarrying()>=RobotType.LANDSCAPER.dirtLimit)&&(AttacksSent<2)){
+            tryBlockchain(new int[]{1, rc.getLocation().x, rc.getLocation().y});
+
+
         }
     }
 
     static void runDeliveryDrone() throws GameActionException {
         boolean moved = false;
+        System.out.println(rc.getBlock(1));
+        System.out.println("test");
+//        if(rc.getBlock(1)[1]==1){
+//
+//        }
         if(rc.senseFlooding(rc.getLocation())){
             lastSeenWater = rc.getLocation();
         }
@@ -448,12 +475,8 @@ public strictfp class RobotPlayer {
         } else return false;
     }
 
-    static void tryBlockchain() throws GameActionException {
+    static void tryBlockchain(int[] message) throws GameActionException {
         if (turnCount < 3) {
-            int[] message = new int[7];
-            for (int i = 0; i < 7; i++) {
-                message[i] = 1234567890;
-            }
             if (rc.canSubmitTransaction(message, 10))
                 rc.submitTransaction(message, 10);
         }
