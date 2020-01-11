@@ -13,6 +13,9 @@ public strictfp class RobotPlayer {
     static Direction myHeading = Direction.WEST;
     static MapLocation lastSeenWater = new MapLocation(-5, -5);
     static MapLocation ourHQ = new MapLocation(-5,-5);
+    static int AttacksSent = 0;
+    static int a = 0;
+
 
     static Direction[] directions = {
             Direction.NORTH,
@@ -97,7 +100,7 @@ public strictfp class RobotPlayer {
     }
 
     static void runMiner() throws GameActionException {
-        tryBlockchain();
+        //tryBlockchain();
         boolean moved = false;
         boolean inventoryFull = rc.getSoupCarrying() >= RobotType.MINER.soupLimit;
         boolean seesAmazon = false;
@@ -169,7 +172,7 @@ public strictfp class RobotPlayer {
                 }
             }
         }
-        /*   //
+
         if (!seesAmazon && (lastSeenAmazon.x < 0 || lastSeenAmazon.y < 0)) {
             boolean built = false;
             for (Direction dir : directions) {
@@ -314,10 +317,21 @@ public strictfp class RobotPlayer {
                 }
             }
         }
+
+        if ((rc.getDirtCarrying()>=RobotType.LANDSCAPER.dirtLimit)&&(AttacksSent<2)){
+            tryBlockchain(new int[]{1, rc.getLocation().x, rc.getLocation().y});
+
+
+        }
     }
 
     static void runDeliveryDrone() throws GameActionException {
         boolean moved = false;
+        System.out.println(rc.getBlock(1));
+        System.out.println("test");
+//        if(rc.getBlock(1)[1]==1){
+//
+//        }
         if(rc.senseFlooding(rc.getLocation())){
             lastSeenWater = rc.getLocation();
         }
@@ -457,12 +471,8 @@ public strictfp class RobotPlayer {
         } else return false;
     }
 
-    static void tryBlockchain() throws GameActionException {
+    static void tryBlockchain(int[] message) throws GameActionException {
         if (turnCount < 3) {
-            int[] message = new int[7];
-            for (int i = 0; i < 7; i++) {
-                message[i] = 1234567890;
-            }
             if (rc.canSubmitTransaction(message, 10))
                 rc.submitTransaction(message, 10);
         }
