@@ -307,6 +307,7 @@ public strictfp class RobotPlayer {
                 int distance = (ourPos.add(dir).distanceSquaredTo(ourHQ));
                 if ((distance > 3) && (distance < 9)){
                     rc.depositDirt(dir);
+                    tryMove(dir);
                 }else{
                     if(rc.canDigDirt(dir)){
                         rc.digDirt(dir);
