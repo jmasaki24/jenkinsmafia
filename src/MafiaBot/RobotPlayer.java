@@ -173,7 +173,7 @@ public strictfp class RobotPlayer {
             }
         }
 
-        if (!seesAmazon && (lastSeenAmazon.x < 0 || lastSeenAmazon.y < 0)) {
+       /* if (!seesAmazon && (lastSeenAmazon.x < 0 || lastSeenAmazon.y < 0)) {
             boolean built = false;
             for (Direction dir : directions) {
                 if (!built) {
@@ -182,7 +182,7 @@ public strictfp class RobotPlayer {
                     }
                 }
             }
-        }
+        }*/
 
         // build schools
 
