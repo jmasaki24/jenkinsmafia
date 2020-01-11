@@ -1,6 +1,5 @@
-package MafiaBot;
+package zoerbjunk;
 import battlecode.common.*;
-import battlecode.doc.RobotTypeTaglet;
 
 import java.util.Map;
 

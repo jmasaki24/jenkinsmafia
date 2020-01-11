@@ -1,6 +1,6 @@
 package MafiaBot;
 import battlecode.common.*;
-import battlecode.doc.RobotTypeTaglet;
+//import battlecode.doc.RobotTypeTaglet;
 
 import java.util.Map;
 
