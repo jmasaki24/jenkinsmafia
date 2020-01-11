@@ -1,8 +1,12 @@
 package MafiaBot;
 import battlecode.common.*;
 
+
+import java.util.Map;
+
 public strictfp class RobotPlayer {
     static RobotController rc;
+    // initialized to negative stuff because we don't know how to check against a null object (if that's a thing in java)
     static MapLocation lastSeenSoup = new MapLocation(-5,-5);
     static int LastRoundMined = 0;
     static MapLocation lastSeenRefinery = new MapLocation(-5,-5);

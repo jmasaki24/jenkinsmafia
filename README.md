@@ -2,8 +2,10 @@
 
 I suppose this can serve as our "notes"/brainstorming document.
 
-Not only is it better to write out stuff in pseudocode first, I have some ideas that I have no clue how to implement at the moment, so I will write them down here.
-
+Order of priorities/actions
+- Build a few miners (10 perhaps?)
+- Build a refinery if the soup is far (more than HQ radius) away
+-
 
 ## Project Structure
 
