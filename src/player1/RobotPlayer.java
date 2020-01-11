@@ -8,10 +8,10 @@ import battlecode.common.*;
 public strictfp class RobotPlayer {
     static RobotController rc;
     // initialized to negative stuff because we don't know how to check against a null object (if that's a thing in java)
-    static MapLocation lastSeenSoup = new MapLocation(-5,-5);
+    static MapLocation lastSeenSoup = new MapLocation(-5, -5);
     static int LastRoundMined = 0;
-    static MapLocation lastSeenRefinery = new MapLocation(-5,-5);
-    static MapLocation lastSeenAmazon = new MapLocation(-5,-5);
+    static MapLocation lastSeenRefinery = new MapLocation(-5, -5);
+    static MapLocation lastSeenAmazon = new MapLocation(-5, -5);
     static Direction myHeading = Direction.WEST;
     static MapLocation lastSeenWater = new MapLocation(-5, -5);
 
@@ -39,7 +39,7 @@ public strictfp class RobotPlayer {
 
         // This is the RobotController object. You use it to perform actions from this robot,
         // and to get information on its current status.
-        MafiaBot.RobotPlayer.rc = rc;
+        player1.RobotPlayer.rc = rc;
 
         turnCount = 0;
 
@@ -91,7 +91,7 @@ public strictfp class RobotPlayer {
     }
 
     static void runHQ() throws GameActionException {
-        if (rc.getRobotCount() <= 10  || rc.getRoundNum() < 35) {
+        if (rc.getRobotCount() <= 10 || rc.getRoundNum() < 35) {
             for (Direction dir : directions)
                 tryBuild(RobotType.MINER, dir);
         }
@@ -102,6 +102,10 @@ public strictfp class RobotPlayer {
         boolean inventoryFull = rc.getSoupCarrying() >= RobotType.MINER.soupLimit * .8;
         boolean seesAmazon = false;
         boolean mined = false;
+
+        if (rc.getRoundNum() == 300) {
+            System.out.println("should pause i hope");
+        }
 
         //Refine Soup Everywhere
         for (Direction dir : directions)
@@ -120,7 +124,6 @@ public strictfp class RobotPlayer {
         }
 
 
-
         //Vision and Memory
         RobotInfo[] robot = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared, rc.getTeam());
         for (RobotInfo robo : robot) {
@@ -130,7 +133,7 @@ public strictfp class RobotPlayer {
                     inventoryFull = false;
                     lastSeenRefinery = robo.location;
                     System.out.println("Found a refinery!");
-                } else if(robo.type == RobotType.FULFILLMENT_CENTER){
+                } else if (robo.type == RobotType.FULFILLMENT_CENTER) {
                     seesAmazon = true;
                     lastSeenAmazon = robo.location;
                 }
@@ -179,12 +182,12 @@ public strictfp class RobotPlayer {
                 if (lastSeenRefinery.x >= 0 && lastSeenRefinery.y >= 0) {
                     System.out.println("Heading to a refinery!");
                     if (!rc.senseFlooding(rc.getLocation().add(rc.getLocation().directionTo(lastSeenRefinery)))) {
-                        if(!tryMove(rc.getLocation().directionTo(lastSeenRefinery))){
+                        if (!tryMove(rc.getLocation().directionTo(lastSeenRefinery))) {
                             tryMove(randomDirection());
                         }
                         System.out.println("Going to a refinery!!" + lastSeenRefinery);
                     }
-                } else{
+                } else {
                     //build one refinery in any direction you can if the last one is too far
                     boolean built = false;
                     for (Direction dir : directions) {
@@ -205,22 +208,22 @@ public strictfp class RobotPlayer {
                     }
                 }
             } else {
-                if((lastSeenSoup.x >= 0 && lastSeenSoup.y >= 0)){
+                if ((lastSeenSoup.x >= 0 && lastSeenSoup.y >= 0)) {
                     //if 10 rounds has passed since we mined soup
                     if (lastSeenSoup.distanceSquaredTo(rc.getLocation()) <= 4) {
 
                         System.out.println("I got lost somehow???" + lastSeenSoup);
-                        lastSeenSoup = new MapLocation(-5,-5);
-                    } else{
+                        lastSeenSoup = new MapLocation(-5, -5);
+                    } else {
                         //Scour for soup
                         if (!rc.senseFlooding(rc.getLocation().add(rc.getLocation().directionTo(lastSeenSoup)))) {
-                            if(!tryMove(rc.getLocation().directionTo(lastSeenSoup))){
+                            if (!tryMove(rc.getLocation().directionTo(lastSeenSoup))) {
                                 tryMove(randomDirection());
                             }
                             System.out.println("Going to old soup" + lastSeenSoup);
                         }
                     }
-                } else{
+                } else {
                     Direction rand = randomDirection();
                     if (!rc.senseFlooding(rc.getLocation().add(rand))) {
                         tryMove(rand);
@@ -256,7 +259,7 @@ public strictfp class RobotPlayer {
 
     static void runDeliveryDrone() throws GameActionException {
         boolean moved = false;
-        if(rc.senseFlooding(rc.getLocation())){
+        if (rc.senseFlooding(rc.getLocation())) {
             lastSeenWater = rc.getLocation();
         }
         Team enemy = rc.getTeam().opponent();
@@ -276,17 +279,17 @@ public strictfp class RobotPlayer {
             }
             tryMove(randomDirection());
         } else {
-            if(rc.getLocation() == lastSeenWater){
-                for (Direction dir: directions){
-                    if (tryMove(dir)){
+            if (rc.getLocation() == lastSeenWater) {
+                for (Direction dir : directions) {
+                    if (tryMove(dir)) {
                         rc.dropUnit(Direction.CENTER.opposite());
                     }
                 }
-            } else{
-                if(lastSeenWater.x < 0 || lastSeenWater.y < 0){
+            } else {
+                if (lastSeenWater.x < 0 || lastSeenWater.y < 0) {
                     tryMove(randomDirection());
-                } else{
-                    if(!tryMove(rc.getLocation().directionTo(lastSeenWater))){
+                } else {
+                    if (!tryMove(rc.getLocation().directionTo(lastSeenWater))) {
                         tryMove(randomDirection());
                     }
                 }
@@ -295,9 +298,9 @@ public strictfp class RobotPlayer {
     }
 
     static void runNetGun() throws GameActionException {
-        RobotInfo targets[] = rc.senseNearbyRobots(RobotType.NET_GUN.sensorRadiusSquared,rc.getTeam().opponent());
-        for(RobotInfo target:targets){
-            if(rc.canShootUnit(target.ID)){
+        RobotInfo targets[] = rc.senseNearbyRobots(RobotType.NET_GUN.sensorRadiusSquared, rc.getTeam().opponent());
+        for (RobotInfo target : targets) {
+            if (rc.canShootUnit(target.ID)) {
                 rc.shootUnit(target.ID);
             }
         }
@@ -406,3 +409,4 @@ public strictfp class RobotPlayer {
         }
         // System.out.println(rc.getRoundMessages(turnCount-1));
     }
+}
