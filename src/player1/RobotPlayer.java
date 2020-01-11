@@ -103,10 +103,6 @@ public strictfp class RobotPlayer {
         boolean seesAmazon = false;
         boolean mined = false;
 
-        if (rc.getRoundNum() == 300) {
-            System.out.println("should pause i hope");
-        }
-
         //Refine Soup Everywhere
         for (Direction dir : directions)
             if (tryRefine(dir))
@@ -410,3 +406,5 @@ public strictfp class RobotPlayer {
         // System.out.println(rc.getRoundMessages(turnCount-1));
     }
 }
+
+

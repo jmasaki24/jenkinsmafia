@@ -1,7 +1,5 @@
 package MafiaBot;
 import battlecode.common.*;
-
-
 import java.util.Map;
 
 public strictfp class RobotPlayer {
