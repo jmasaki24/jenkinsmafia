@@ -177,7 +177,7 @@ public strictfp class RobotPlayer {
             boolean built = false;
             for (Direction dir : directions) {
                 if (!built) {
-                    if (tryBuild(RobotType.FULLFILLMENTCENTER, randomDirection())) {
+                    if (tryBuild(RobotType.FULFILLMENT_CENTER, randomDirection())) {
                         built = true;
                     }
                 }
@@ -186,7 +186,7 @@ public strictfp class RobotPlayer {
 
         // build schools
 
-*/      System.out.println("Sees HQ" + seesHQ);
+        System.out.println("Sees HQ" + seesHQ);
         System.out.println("Sees School" + seesSchool);
         System.out.println("Doesn't remember school" + (lastSeenSchool.x < 0 || lastSeenSchool.y < 0));
         if (!seesSchool && ((lastSeenSchool.x < 0 || lastSeenSchool.y < 0) && seesHQ)) {
@@ -277,8 +277,11 @@ public strictfp class RobotPlayer {
     }
 
     static void runFulfillmentCenter() throws GameActionException {
-        for (Direction dir : directions) {
-            tryBuild(RobotType.DELIVERY_DRONE, dir);
+        if (a<10) {
+            for (Direction dir : directions) {
+                tryBuild(RobotType.DELIVERY_DRONE, dir);
+            }
+            a++;
         }
     }
 
