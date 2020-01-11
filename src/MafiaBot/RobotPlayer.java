@@ -301,8 +301,17 @@ public strictfp class RobotPlayer {
                 if(!tryMove(rc.getLocation().directionTo(ourHQ).opposite())){
                     tryMove(randomDirection());
                 }
-            } else{
-
+            } else{ //we are in position, prepare to deliver load
+                MapLocation ourPos = rc.getLocation();
+                Direction dir = randomDirection();
+                int distance = (ourPos.add(dir).distanceSquaredTo(ourHQ));
+                if ((distance > 3) && (distance < 9)){
+                    rc.depositDirt(dir);
+                }else{
+                    if(rc.canDigDirt(dir)){
+                        rc.digDirt(dir);
+                    }
+                }
             }
         }
     }
