@@ -1,8 +1,5 @@
 package MafiaBot;
 import battlecode.common.*;
-import battlecode.doc.RobotTypeTaglet;
-
-import java.util.Map;
 
 public strictfp class RobotPlayer {
     static RobotController rc;
@@ -10,8 +7,10 @@ public strictfp class RobotPlayer {
     static int LastRoundMined = 0;
     static MapLocation lastSeenRefinery = new MapLocation(-5,-5);
     static MapLocation lastSeenAmazon = new MapLocation(-5,-5);
+    static MapLocation lastSeenSchool = new MapLocation(-5,-5);
     static Direction myHeading = Direction.WEST;
     static MapLocation lastSeenWater = new MapLocation(-5, -5);
+    static MapLocation ourHQ = new MapLocation(-5,-5);
 
     static Direction[] directions = {
             Direction.NORTH,
@@ -96,9 +95,12 @@ public strictfp class RobotPlayer {
     }
 
     static void runMiner() throws GameActionException {
+        tryBlockchain();
         boolean moved = false;
-        boolean inventoryFull = rc.getSoupCarrying() >= RobotType.MINER.soupLimit * .8;
+        boolean inventoryFull = rc.getSoupCarrying() >= RobotType.MINER.soupLimit;
         boolean seesAmazon = false;
+        boolean seesSchool = false;
+        boolean seesHQ = false;
         boolean mined = false;
 
         //Refine Soup Everywhere
@@ -124,6 +126,10 @@ public strictfp class RobotPlayer {
         for (RobotInfo robo : robot) {
             if (robo.team == rc.getTeam()) {
                 //if we see a friendly refinery or hq
+                 if(robo.type == RobotType.HQ){
+                    seesHQ = true;
+                    ourHQ = robo.location;
+                }
                 if (robo.type == RobotType.REFINERY || robo.type == RobotType.HQ) {
                     inventoryFull = false;
                     lastSeenRefinery = robo.location;
@@ -131,6 +137,9 @@ public strictfp class RobotPlayer {
                 } else if(robo.type == RobotType.FULFILLMENT_CENTER){
                     seesAmazon = true;
                     lastSeenAmazon = robo.location;
+                } else if(robo.type == RobotType.DESIGN_SCHOOL){
+                    seesSchool = true;
+                    lastSeenSchool = robo.location;
                 }
             }
         }
@@ -158,14 +167,32 @@ public strictfp class RobotPlayer {
                 }
             }
         }
-
+        /*   //
         if (!seesAmazon && (lastSeenAmazon.x < 0 || lastSeenAmazon.y < 0)) {
             boolean built = false;
             for (Direction dir : directions) {
                 if (!built) {
-                    if (tryBuild(RobotType.FULFILLMENT_CENTER, randomDirection())) {
+                    if (tryBuild(RobotType.FULLFILLMENTCENTER, randomDirection())) {
                         built = true;
                     }
+                }
+            }
+        }
+
+        // build schools
+
+*/      System.out.println("Sees HQ" + seesHQ);
+        System.out.println("Sees School" + seesSchool);
+        System.out.println("Doesn't remember school" + (lastSeenSchool.x < 0 || lastSeenSchool.y < 0));
+        if (!seesSchool && ((lastSeenSchool.x < 0 || lastSeenSchool.y < 0) && seesHQ)) {
+            if(ourHQ.distanceSquaredTo(rc.getLocation()) > 8){
+                moved = true;
+                if(!tryMove(rc.getLocation().directionTo(ourHQ))){
+                    tryMove(randomDirection());
+                }
+            } else{
+                if (!tryBuild(RobotType.DESIGN_SCHOOL, rc.getLocation().directionTo(ourHQ))) {
+                    moved = false;
                 }
             }
         }
@@ -239,7 +266,9 @@ public strictfp class RobotPlayer {
     }
 
     static void runDesignSchool() throws GameActionException {
-
+        for (Direction dir : directions) {
+            tryBuild(RobotType.LANDSCAPER, dir);
+        }
     }
 
     static void runFulfillmentCenter() throws GameActionException {
@@ -249,7 +278,31 @@ public strictfp class RobotPlayer {
     }
 
     static void runLandscaper() throws GameActionException {
+        
+        RobotInfo[] robot = rc.senseNearbyRobots(RobotType.LANDSCAPER.sensorRadiusSquared, rc.getTeam());
+        for (RobotInfo robo : robot) {
+            if (robo.team == rc.getTeam()) {
+                //if we see a friendly refinery or hq
+                if (robo.type == RobotType.HQ) {
+                    ourHQ = robo.location;
+                }
+            }
+        }
 
+        if (ourHQ.x >= 0 && ourHQ.y >= 0) {
+            //if far move close
+            if(ourHQ.distanceSquaredTo(rc.getLocation()) > 8){
+                if(!tryMove(rc.getLocation().directionTo(ourHQ))){
+                    tryMove(randomDirection());
+                }
+            } else if(ourHQ.distanceSquaredTo(rc.getLocation()) < 4){ //if too close move away
+                if(!tryMove(rc.getLocation().directionTo(ourHQ).opposite())){
+                    tryMove(randomDirection());
+                }
+            } else{
+
+            }
+        }
     }
 
     static void runDeliveryDrone() throws GameActionException {
@@ -397,7 +450,7 @@ public strictfp class RobotPlayer {
         if (turnCount < 3) {
             int[] message = new int[7];
             for (int i = 0; i < 7; i++) {
-                message[i] = 123;
+                message[i] = 1234567890;
             }
             if (rc.canSubmitTransaction(message, 10))
                 rc.submitTransaction(message, 10);
