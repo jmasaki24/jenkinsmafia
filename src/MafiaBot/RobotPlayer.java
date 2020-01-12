@@ -97,7 +97,6 @@ public strictfp class RobotPlayer {
     }
 
     static void runMiner() throws GameActionException {
-        tryBlockchain();
         boolean moved = false;
         boolean inventoryFull = rc.getSoupCarrying() >= RobotType.MINER.soupLimit;
         boolean seesAmazon = false;
@@ -458,15 +457,31 @@ public strictfp class RobotPlayer {
         } else return false;
     }
 
-    static void tryBlockchain() throws GameActionException {
+    static void PutItOnTheChain(RobotInfo robot) throws GameActionException {
         if (turnCount < 3) {
-            int[] message = new int[7];
-            for (int i = 0; i < 7; i++) {
-                message[i] = 1234567890;
+            int[] message = new int[2];
+            String messageF = "";
+            for (int i = 0; i < message.length; i++) {
+                switch(i){
+                    case 1:{
+                        messageF = "0000";//Hardcoded Item Name
+                    }
+                    case 2:{
+                        messageF = messageF + (rc.getLocation().x + "" + rc.getLocation().y);//location x added to location
+                    }
+                    messageF = messageF + rc.getRoundNum();
+                    int sum = 0;
+                    while(Integer.parseInt(messageF)/ 10 > 9){
+                        System.out.println(message[i]);
+                        sum += Integer.parseInt(messageF) % 10;
+                    }
+                    messageF += sum;
+                    message[i] = Integer.parseInt(messageF);
+                }
+
             }
             if (rc.canSubmitTransaction(message, 10))
                 rc.submitTransaction(message, 10);
         }
-        // System.out.println(rc.getRoundMessages(turnCount-1));
     }
 }
