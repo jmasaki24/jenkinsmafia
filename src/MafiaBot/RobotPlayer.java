@@ -1,8 +1,5 @@
 package MafiaBot;
 import battlecode.common.*;
-import jdk.nashorn.internal.ir.Block;
-
-import java.util.Map;
 
 public strictfp class RobotPlayer {
     static RobotController rc;
@@ -598,13 +595,12 @@ public strictfp class RobotPlayer {
         }
     }
 
-    static boolean isOurMessage(int block,int message) throws GameActionException {
-        Transaction[] thisBlock = rc.getBlock(block);
-        int[] x = thisBlock[message - 1].getMessage();
+
+    //Checks the checksum of each message
+    static boolean isOurMessage(int[] x){
+
         boolean[] messageValid = new boolean[x.length];
         int count = 0;
-
-        //tells us if each message is valid and stores in messageValid
         for(int a: x) {
             int sum = a%100;
             if(checkSum(a/100) == sum){
@@ -623,6 +619,47 @@ public strictfp class RobotPlayer {
         return true;
     }
 
+    static boolean isOurMessage(int block,int message) throws GameActionException {
+        Transaction[] thisBlock = rc.getBlock(block);
+        int[] x = thisBlock[message - 1].getMessage();
+        return isOurMessage(x);
+    }
+
+    //gets initial message from encrypted message
+    static int getMessage(int a){
+        return a/1000000;
+    }
+
+    //Use this to get a list of messages from a block
+    static int[] getMessages(int block) throws GameActionException {
+        Transaction[] Block = rc.getBlock(block);
+        int[] ourMessages = new int[Block.length];
+
+        int count = 0;
+        for(Transaction submission: Block){
+            if(isOurMessage(submission.getMessage())){
+                ourMessages[count] = getMessage(submission.getMessage()[0]);
+                count++;
+            }
+        }
+        return ourMessages;
+    }
+
+    //Gets the coordinates of a message we sent to the block chain
+    static int[] getMessageCoordinates(int block) throws GameActionException {
+        Transaction[] Block = rc.getBlock(block);
+        int[] ourMessages = new int[Block.length];
+
+        int count = 0;
+        for(Transaction submission: Block){
+            if(isOurMessage(submission.getMessage())){
+                ourMessages[count] = getMessage(submission.getMessage()[1]);
+                count++;
+            }
+        }
+        return ourMessages;
+    }
+
     static int checkSum(int a){
         int sum = 0;
         int temp = a;
@@ -632,7 +669,6 @@ public strictfp class RobotPlayer {
             temp = temp / 10;
         }
         sum += temp;
-
         return sum;
     }
 
