@@ -29,12 +29,13 @@ public strictfp class RobotPlayer {
     static int turnCount; // number of turns since creation
     static int numMiners = 0;
 
+    static MapLocation myLoc;
     static MapLocation hqLoc;
-    static ArrayList<MapLocation> soupLocations = new ArrayList<MapLocation>();
-    static ArrayList<MapLocation> refineryLocations = new ArrayList<MapLocation>();
-    static ArrayList<MapLocation> designSchoolLocations = new ArrayList<MapLocation>();
-    static ArrayList<MapLocation> vaporatorLocations = new ArrayList<MapLocation>();
-    static ArrayList<MapLocation> amazonLocations = new ArrayList<MapLocation>();
+    static ArrayList<MapLocation> soupLocations = new ArrayList<>();
+    static ArrayList<MapLocation> refineryLocations = new ArrayList<>();
+    static ArrayList<MapLocation> designSchoolLocations = new ArrayList<>();
+    static ArrayList<MapLocation> vaporatorLocations = new ArrayList<>();
+    static ArrayList<MapLocation> amazonLocations = new ArrayList<>();
 
     // used in blockchain transactions
     static final int teamSecret = 444444444;
@@ -109,6 +110,9 @@ public strictfp class RobotPlayer {
         updateSoupLocations();
         checkIfSoupGone();
 
+        myLoc = rc.getLocation();
+
+        // TODO: 1/12/2020 maybe have the first priority be: run away from flood?
         // first, try to refine soup in all directions
         for (Direction dir : directions)
             if (tryRefine(dir))
@@ -136,15 +140,31 @@ public strictfp class RobotPlayer {
         // if there are less than MINERLIMIT miners, tell hq to pause building miners????
         if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
             System.out.println("I'm full of soup");
-            if (rc.getLocation().distanceSquaredTo(hqLoc) > 25) {
-                if (refineryLocations.size() == 0) {
-                    tryBuild(RobotType.REFINERY, randomDirection());
-                } else
-                    goTo(refineryLocations.get(0));
-            } else { // go back to HQ
+
+
+            //find closest refinery (including hq, should change that tho since HQ will become unreachable)
+            MapLocation closestRefineryLoc = hqLoc;
+
+            // will we ever have so many refineries that this is ineffective and we should rather sort the ArrayList
+            // by distance/accessibility all the time? idfk.
+            if (refineryLocations.size() != 0) {
+                for (MapLocation refinery : refineryLocations) {
+                    if (myLoc.distanceSquaredTo(refinery) < myLoc.distanceSquaredTo(closestRefineryLoc)) {
+                        closestRefineryLoc = refinery;
+                    }
+                }
+            }
+
+            // TODO: 1/12/2020 an edge case: when all of the miners are far away and there isn't enough soup to make
+            // a refinery, they just sit there and wait for passive soup income.
+
+            // how far away is enough to justify a new refinery?
+            if (rc.getLocation().distanceSquaredTo(closestRefineryLoc) > 35) {
+                tryBuild(RobotType.REFINERY, randomDirection());
+            } else {
                 System.out.println("moved towards HQ");
-                goTo(hqLoc);
-                rc.setIndicatorLine(rc.getLocation(), hqLoc, 255, 0, 255);
+                goTo(closestRefineryLoc);
+                rc.setIndicatorLine(rc.getLocation(), closestRefineryLoc, 255, 0, 255);
 
             }
         }
@@ -159,6 +179,7 @@ public strictfp class RobotPlayer {
             }
         }
     }
+
 
     // a refinery literally can't do anything...
     // maybe if it detects an enemy landscaper, it can request a drone to move it away?
