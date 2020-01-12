@@ -27,6 +27,17 @@ public strictfp class RobotPlayer {
             Direction.WEST,
             Direction.NORTHWEST
     };
+    static Direction[] alldirections = {
+            Direction.NORTH,
+            Direction.NORTHEAST,
+            Direction.EAST,
+            Direction.SOUTHEAST,
+            Direction.SOUTH,
+            Direction.SOUTHWEST,
+            Direction.WEST,
+            Direction.NORTHWEST,
+            Direction.CENTER
+    };
     static RobotType[] spawnedByMiner = {RobotType.REFINERY, RobotType.VAPORATOR, RobotType.DESIGN_SCHOOL,
             RobotType.FULFILLMENT_CENTER, RobotType.NET_GUN};
 
@@ -97,6 +108,12 @@ public strictfp class RobotPlayer {
             for (Direction dir : directions)
                 tryBuild(RobotType.MINER, dir);
         }
+        RobotInfo targets[] = rc.senseNearbyRobots(RobotType.NET_GUN.sensorRadiusSquared, rc.getTeam().opponent());
+        for(RobotInfo target:targets){
+            if(rc.canShootUnit(target.ID)){
+                rc.shootUnit(target.ID);
+            }
+        }
     }
 
     static void runMiner() throws GameActionException {
@@ -123,8 +140,6 @@ public strictfp class RobotPlayer {
                 lastSeenSoup = rc.getLocation().add(dir);
             }
         }
-
-
 
         //Vision and Memory
         RobotInfo[] robot = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared, rc.getTeam());
@@ -299,35 +314,48 @@ public strictfp class RobotPlayer {
 
         if (ourHQ.x >= 0 && ourHQ.y >= 0) {
             //if far move close
+            if(((ourHQ.distanceSquaredTo(rc.getLocation()) == 8) || (ourHQ.distanceSquaredTo(rc.getLocation()) == 4))) { //we are in position, prepare to deliver load
+                MapLocation ourPos = rc.getLocation();
+                Direction dir = randomallDirection();
+                int distance = (ourPos.add(dir).distanceSquaredTo(ourHQ));
+                RobotInfo[] robots = rc.senseNearbyRobots(RobotType.LANDSCAPER.sensorRadiusSquared, rc.getTeam());
+                int count = 0;
+                for (RobotInfo robo: robots){
+                    if (robo.type == RobotType.LANDSCAPER){
+                        count++;
+                    }
+                }
+                // If the ring is not full of landscapers AKA not complete
+                if (count>=9){
+                    if ((distance > 3) && (distance < 9)){
+                        rc.depositDirt(dir);
+                    } else {
+                        if(rc.canDigDirt(dir)){
+                            rc.digDirt(dir);
+                        }
+                    }
+                }
+            }
             if(ourHQ.distanceSquaredTo(rc.getLocation()) > 8){
                 if(!tryMove(rc.getLocation().directionTo(ourHQ))){
-                    tryMove(randomDirection());
+                    if (!tryMove(rc.getLocation().directionTo(ourHQ).rotateLeft())){
+                        tryMove(randomDirection());
+                    }
                 }
-            } else if(ourHQ.distanceSquaredTo(rc.getLocation()) < 4){ //if too close move away
-                if(!tryMove(rc.getLocation().directionTo(ourHQ).opposite())){
-                    tryMove(randomDirection());
-                }
-            } else{ //we are in position, prepare to deliver load
-                MapLocation ourPos = rc.getLocation();
-                Direction dir = randomDirection();
-                int distance = (ourPos.add(dir).distanceSquaredTo(ourHQ));
-                if ((distance > 3) && (distance < 9)){
-                    rc.depositDirt(dir);
-                    tryMove(dir);
-                }else{
-                    if(rc.canDigDirt(dir)){
-                        rc.digDirt(dir);
+            } else if(((ourHQ.distanceSquaredTo(rc.getLocation()) !=4)&&(ourHQ.distanceSquaredTo(rc.getLocation()) !=8))){ //if in the wrong spot relocate
+                tryMove(rc.getLocation().directionTo(ourHQ));
+                    if (!tryMove(rc.getLocation().directionTo(ourHQ).opposite())){
+                        tryMove(randomDirection());
                     }
                 }
             }
         }
 
-        if ((rc.getDirtCarrying()>=RobotType.LANDSCAPER.dirtLimit)&&(AttacksSent<2)){
+        /*if ((rc.getDirtCarrying()>=RobotType.LANDSCAPER.dirtLimit)&&(AttacksSent<2)){
             tryBlockchain(new int[]{1, rc.getLocation().x, rc.getLocation().y});
 
 
-        }
-    }
+        }*/
 
     static void runDeliveryDrone() throws GameActionException {
         boolean moved = false;
@@ -390,6 +418,9 @@ public strictfp class RobotPlayer {
      */
     static Direction randomDirection() {
         return directions[(int) (Math.random() * directions.length)];
+    }
+    static Direction randomallDirection() {
+        return alldirections[(int) (Math.random() * alldirections.length)];
     }
 
     /**
