@@ -1,5 +1,7 @@
 package MafiaBot;
 import battlecode.common.*;
+import jdk.nashorn.internal.ir.Block;
+
 import java.util.Map;
 
 public strictfp class RobotPlayer {
@@ -101,8 +103,13 @@ public strictfp class RobotPlayer {
     }
 
     static void runHQ() throws GameActionException {
-        testChain();
-        //PutItOnTheChain(1234);
+        //testChain();
+        PutItOnTheChain(1234);
+        if(rc.getRoundNum() > 10){
+            if(isOurMessage(10,1)){
+                System.out.println("Can send messages!!!");
+            }
+        }
         if (rc.getRobotCount() <= 10 || rc.getRoundNum() < 35) {
             for (Direction dir : directions)
                 tryBuild(RobotType.MINER, dir);
@@ -508,11 +515,39 @@ public strictfp class RobotPlayer {
 
 
     static void PutItOnTheChain(int a) throws GameActionException {
-        int[] message = new int[2];
-        String messageF = "";
-        for (int i = 0; i < message.length; i++) {
-            if (i == 0) {
-                //000 when entered becomes 0, this corrects for that
+        if(rc.getRoundNum() > 3) {
+            int[] message = new int[2];
+            String messageF = "";
+            for (int i = 0; i < message.length; i++) {
+                if (i == 0) {
+                    //000 when entered becomes 0, this corrects for that
+                    if (a < 1000) {
+                        messageF += "0";
+                        if (a < 100) {
+                            messageF += "0";
+                            if (a < 10) {
+                                messageF += "0";
+                            }
+                        }
+                    }
+                    messageF += Integer.toString(a); //a needs to be a 4 digit integer
+                } else {
+                    int x = rc.getLocation().x;
+                    int y = rc.getLocation().y;
+                    String tX = "";
+                    String tY = "";
+
+                    if (x < 10) {
+                        tX += "0";
+                    }
+                    if (y < 10) {
+                        tY += "0";
+                    }
+                    messageF = (tX + (x + "" + tY) + y);//location x added to location
+                }
+                //add round number
+                //Protect against loss of zeroes
+                a = rc.getRoundNum();
                 if (a < 1000) {
                     messageF += "0";
                     if (a < 100) {
@@ -522,52 +557,19 @@ public strictfp class RobotPlayer {
                         }
                     }
                 }
-                messageF += Integer.toString(a); //a needs to be a 4 digit integer
-            } else {
-                int x = rc.getLocation().x;
-                int y = rc.getLocation().y;
-                String tX = "";
-                String tY = "";
-
-                if (x < 10) {
-                    tX += "0";
+                messageF = messageF + (rc.getRoundNum() % 1000); // add last 4 digits of round number
+                int sum = checkSum(messageF);
+                String addZero = "";
+                if (sum < 10) {
+                    addZero = "0";
                 }
-                if(y < 10) {
-                    tY += "0";
-                }
-                messageF = (tX + x + "" + tY + y);//location x added to location
+                messageF = messageF + addZero + sum;
+                message[i] = stringToInt(messageF);
+                System.out.println(messageF);
             }
-            //add round number
-            //Protect against loss of zeroes
-            a = rc.getRoundNum();
-            if (a < 1000) {
-                messageF += "0";
-                if (a < 100) {
-                    messageF += "0";
-                    if (a < 10) {
-                        messageF += "0";
-                    }
-                }
+            if (rc.canSubmitTransaction(message, 1)) {
+                rc.submitTransaction(message, 1);
             }
-            messageF = messageF + (rc.getRoundNum() % 1000); // add last 4 digits of round number
-            int sum = 0;
-            int temp = Integer.parseInt(messageF);
-            //Add up all the digits
-            while (temp > 9) {
-                sum += temp % 10;
-                temp = temp / 10;
-            }
-            sum += temp;
-            String addZero = "";
-            if (sum < 10){
-                addZero = "0";
-            }
-            messageF = messageF + addZero + sum;
-            message[i] = Integer.parseInt(messageF);
-            System.out.println(messageF);
-        }
-        if (rc.canSubmitTransaction(message, 1)) {
-            rc.submitTransaction(message, 1);
         }
     }
 
@@ -579,10 +581,62 @@ public strictfp class RobotPlayer {
     }
 
     static void PutItOnTheChain(String a) throws GameActionException {
-        PutItOnTheChain(Integer.parseInt(a));
+        PutItOnTheChain(stringToInt(a));
     }
-    
+
     static int stringToInt(String a){
-        return 0;
+        if (a.length() > 7){ // if string is too long for Integer.parseInt() cut it in half and do it on a smaller piece of the string
+            String aa = a.substring(0,a.length()/2);
+            String ab = a.substring(a.length()/2);
+
+            //recombine the smaller strings
+            int aaa = (int) (stringToInt(aa) * Math.pow(10,ab.length()));
+            int aba = stringToInt(ab);
+            return (aaa + aba);
+        } else{
+            return Integer.parseInt(a);
+        }
+    }
+
+    static boolean isOurMessage(int block,int message) throws GameActionException {
+        Transaction[] thisBlock = rc.getBlock(block);
+        int[] x = thisBlock[message - 1].getMessage();
+        boolean[] messageValid = new boolean[x.length];
+        int count = 0;
+
+        //tells us if each message is valid and stores in messageValid
+        for(int a: x) {
+            int sum = a%100;
+            if(checkSum(a/100) == sum){
+                messageValid[count] = true;
+            } else{
+                messageValid[count] = false;
+            }
+            count++;
+        }
+        //check if all messages are valid
+        for(boolean a: messageValid){
+            if (!a){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static int checkSum(int a){
+        int sum = 0;
+        int temp = a;
+        //Add up all the digits
+        while (temp > 9) {
+            sum += temp % 10;
+            temp = temp / 10;
+        }
+        sum += temp;
+
+        return sum;
+    }
+
+    static int checkSum(String a){
+        return checkSum(stringToInt(a));
     }
 }
