@@ -101,7 +101,7 @@ public strictfp class RobotPlayer {
     }
 
     static void runLandscaper() throws GameActionException {
-
+        myLoc = rc.getLocation();
         RobotInfo[] robot = rc.senseNearbyRobots(RobotType.LANDSCAPER.sensorRadiusSquared, rc.getTeam());
         for (RobotInfo robo : robot) {
             if (robo.team == rc.getTeam()) {
@@ -112,49 +112,46 @@ public strictfp class RobotPlayer {
             }
         }
 
-        System.out.println("I'm building");
 
-        int distance = (myLoc.add(dir).distanceSquaredTo(hqLoc));
-        
+        definitelyMove();
 
-        if (hqLoc.x >= 0 && hqLoc.y >= 0) {
-            //we are in position, prepare to deliver load
-            if (((hqLoc.distanceSquaredTo(rc.getLocation()) == 8) || (hqLoc.distanceSquaredTo(rc.getLocation()) == 4) || rc.senseElevation(rc.getLocation())>=7 || rc.senseElevation(rc.getLocation())<=0) || rc.getRoundNum()>500) {
-                MapLocation ourPos = rc.getLocation();
-                Direction dir = randomAllDirection();
+        //definitelyDigDirt();
+    }
 
-                RobotInfo[] robots = rc.senseNearbyRobots(RobotType.LANDSCAPER.sensorRadiusSquared, rc.getTeam());
-                int count = 0;
-                for (RobotInfo robo : robots) {
-                    if (robo.type == RobotType.LANDSCAPER) {
-                        count++;
-                    }
-                }
-                // If the ring is not full of landscapers AKA not complete
-                if (count >= 8) {
+    static void definitelyMove() throws GameActionException {
+        definitelyDigDirt(0);
+    }
 
-                }
+    static void definitelyMove(int count) throws GameActionException {
+        Direction dir = randomDirection();
+        int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
+        if(distance <= 8){
+            if ((dir != Direction.EAST && dir != Direction.NORTHEAST) && dir != Direction.SOUTHEAST){
+                tryMove(dir);
             }
-            if (hqLoc.distanceSquaredTo(rc.getLocation()) > 8) {
-                if (!tryMove(rc.getLocation().directionTo(hqLoc))) {
-                    if (!tryMove(rc.getLocation().directionTo(hqLoc).rotateLeft())) {
-                        tryMove(randomDirection());
-                    }
-                }
-            } else if (hqLoc.distanceSquaredTo(rc.getLocation()) == 5){
-                if (!tryMove(rc.getLocation().directionTo(hqLoc))) {
-                    if (!tryMove(rc.getLocation().directionTo(hqLoc).rotateLeft())) {
-                        tryMove(rc.getLocation().directionTo(hqLoc).rotateRight());
-                    }
-                }
-            }
-            else if (((hqLoc.distanceSquaredTo(rc.getLocation()) != 4) && (hqLoc.distanceSquaredTo(rc.getLocation()) != 8))) { //if in the wrong spot relocate
-                if (!tryMove(rc.getLocation().directionTo(hqLoc))){
-                    if (!tryMove(rc.getLocation().directionTo(hqLoc).opposite())) {
-                        tryMove(randomDirection());
-                    }
-                }
+        }
+    }
 
+    static void definitelyDigDirt() throws GameActionException {
+        definitelyDigDirt(0);
+    }
+
+    static void definitelyDigDirt(int count) throws GameActionException {
+        int distance = myLoc.distanceSquaredTo(hqLoc);
+        Direction dir = randomAllDirection();
+        if ((distance > 4 && (distance < 9) && rc.canDepositDirt(dir))) {
+            if(rc.canDepositDirt(dir)){
+                rc.depositDirt(dir);
+            } else{
+                if (count < 10)
+                    definitelyDigDirt(count + 1);
+            }
+        } else {
+            if (rc.canDigDirt(dir)) {
+                rc.digDirt(dir);
+            } else{
+                if (count < 10)
+                    definitelyDigDirt(count + 1);
             }
         }
     }
