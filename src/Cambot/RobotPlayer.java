@@ -141,17 +141,17 @@ public strictfp class RobotPlayer {
         updateSoupLocations();
         checkIfSoupGone();
 
+
+
         myLoc = rc.getLocation();
 
         //Build 1 school when summoned into a specific position by HQ
         System.out.println(turnCount);
-        if(turnCount < 3){
+        if(turnCount <= 13){
             System.out.println(hqLoc.distanceSquaredTo(myLoc));
             if(hqLoc.distanceSquaredTo(myLoc) == 2){
                 System.out.println("Trybuild school");
-                if(!tryBuild(RobotType.DESIGN_SCHOOL,Direction.NORTH)){
-                    tryBuild(RobotType.DESIGN_SCHOOL,Direction.EAST);
-                }
+                tryBuild(RobotType.DESIGN_SCHOOL,Direction.NORTH);
             }
         }
 
