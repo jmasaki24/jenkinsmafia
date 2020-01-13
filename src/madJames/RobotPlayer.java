@@ -1,4 +1,5 @@
 package madJames;
+
 import battlecode.common.*;
 import java.lang.Math;
 import java.util.ArrayList;
