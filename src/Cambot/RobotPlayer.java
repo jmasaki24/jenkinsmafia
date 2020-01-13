@@ -1,19 +1,37 @@
-package MafiaBot;
+package Cambot;
 import battlecode.common.*;
+
+import java.util.ArrayList;
+import java.util.Map;
 
 public strictfp class RobotPlayer {
     static RobotController rc;
-    // initialized to negative stuff because we don't know how to check against a null object (if that's a thing in java)
-    static MapLocation lastSeenSoup = new MapLocation(-5, -5);
+
+
+    //Permanent Local Variables
+    static final int SOUPID = 9475;
+    static final int REFINERYID = 3839;
+    static final int SCHOOLID = 2930;
+    static final int NOTHINGID = 4040; // use for clearing potential positions
+
+    // Local Variables
+    static ArrayList<MapLocation> soups = new ArrayList<MapLocation>();
     static int LastRoundMined = 0;
     static MapLocation lastSeenRefinery = new MapLocation(-5, -5);
+    static ArrayList<MapLocation> refineries = new ArrayList<MapLocation>();
     static MapLocation lastSeenAmazon = new MapLocation(-5, -5);
+    static ArrayList<MapLocation> amazons = new ArrayList<MapLocation>();
     static MapLocation lastSeenSchool = new MapLocation(-5, -5);
-    static Direction myHeading = Direction.WEST;
+    static ArrayList<MapLocation> school = new ArrayList<MapLocation>();
     static MapLocation lastSeenWater = new MapLocation(-5, -5);
     static MapLocation ourHQ = new MapLocation(-5, -5);
+
+    // Experimental Variables
+    static boolean seesHQ = false;
     static int AttacksSent = 0;
     static int a = 0;
+    static int lastCheckedBlock = 0;
+    static int[][] receivedMessages;
 
 
     static Direction[] directions = {
@@ -54,6 +72,25 @@ public strictfp class RobotPlayer {
         RobotPlayer.rc = rc;
 
         turnCount = 0;
+
+        queueBlockchain(REFINERYID);
+
+        //Vision and Memory
+        RobotInfo[] robot = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared, rc.getTeam());
+        for (RobotInfo robo : robot) {
+            if (robo.team == rc.getTeam()) {
+                //if we see a friendly refinery or hq
+                if (robo.type == RobotType.HQ) {
+                    ourHQ = robo.location;
+                } else if (robo.type == RobotType.REFINERY) {
+                    PutItOnTheChain(REFINERYID,robo.location);
+                } else if (robo.type == RobotType.FULFILLMENT_CENTER) {
+                    lastSeenAmazon = robo.location;
+                } else if (robo.type == RobotType.DESIGN_SCHOOL) {
+                    lastSeenSchool = robo.location;
+                }
+            }
+        }
 
         while (true) {
             turnCount += 1;
@@ -125,7 +162,6 @@ public strictfp class RobotPlayer {
         boolean inventoryFull = rc.getSoupCarrying() >= RobotType.MINER.soupLimit;
         boolean seesAmazon = false;
         boolean seesSchool = false;
-        boolean seesHQ = false;
         boolean mined = false;
 
         //Refine Soup Everywhere
@@ -140,36 +176,15 @@ public strictfp class RobotPlayer {
                 moved = true;
                 mined = true;
                 LastRoundMined = rc.getRoundNum();
-                lastSeenSoup = rc.getLocation().add(dir);
+                soups.add(rc.getLocation().add(dir));
             }
         }
 
-        //Vision and Memory
-        RobotInfo[] robot = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared, rc.getTeam());
-        for (RobotInfo robo : robot) {
-            if (robo.team == rc.getTeam()) {
-                //if we see a friendly refinery or hq
-                if (robo.type == RobotType.HQ) {
-                    seesHQ = true;
-                    ourHQ = robo.location;
-                }
-                if (robo.type == RobotType.REFINERY || robo.type == RobotType.HQ) {
-                    inventoryFull = false;
-                    lastSeenRefinery = robo.location;
-                    System.out.println("Found a refinery!");
-                } else if (robo.type == RobotType.FULFILLMENT_CENTER) {
-                    seesAmazon = true;
-                    lastSeenAmazon = robo.location;
-                } else if (robo.type == RobotType.DESIGN_SCHOOL) {
-                    seesSchool = true;
-                    lastSeenSchool = robo.location;
-                }
-            }
-        }
+
 
         //build some soup storage
         if (inventoryFull) {
-            if (lastSeenRefinery.distanceSquaredTo(rc.getLocation()) > 60) {
+            if (findClosest(refineries.toArray()).distanceSquaredTo(rc.getLocation()) > 60) {
                 //build one refinery in any direction you can if the last one is too far
                 boolean built = false;
                 for (Direction dir : directions) {
@@ -203,9 +218,10 @@ public strictfp class RobotPlayer {
         }*/
 
         // build schools
-        System.out.println("Sees HQ: " + seesHQ);
-        System.out.println("Sees School: " + seesSchool);
-        System.out.println("Doesn't remember school: " + (lastSeenSchool.x < 0 || lastSeenSchool.y < 0));
+
+        System.out.println("Sees HQ" + seesHQ);
+        System.out.println("Sees School" + seesSchool);
+        System.out.println("Doesn't remember school" + (lastSeenSchool.x < 0 || lastSeenSchool.y < 0));
         if (!seesSchool && ((lastSeenSchool.x < 0 || lastSeenSchool.y < 0) && seesHQ)) {
             if (ourHQ.distanceSquaredTo(rc.getLocation()) > 8) {
                 moved = true;
@@ -221,12 +237,13 @@ public strictfp class RobotPlayer {
 
         //Where to move and when
         if (!moved) {
+            //Replace movement code to check memory
             if (inventoryFull) {
                 //Is the refinery real?
-                if (lastSeenRefinery.x >= 0 && lastSeenRefinery.y >= 0) {
+                if (findClosest(refineries.toArray()).x >= 0 && findClosest(refineries.toArray()).y >= 0) {
                     System.out.println("Heading to a refinery!");
-                    if (!rc.senseFlooding(rc.getLocation().add(rc.getLocation().directionTo(lastSeenRefinery)))) {
-                        if (!tryMove(rc.getLocation().directionTo(lastSeenRefinery))) {
+                    if (!rc.senseFlooding(rc.getLocation().add(rc.getLocation().directionTo(findClosest(refineries.toArray()))))) {
+                        if (!tryMove(rc.getLocation().directionTo(findClosest(refineries.toArray())))) {
                             tryMove(randomDirection());
                         }
                         System.out.println("Going to a refinery!!" + lastSeenRefinery);
@@ -252,29 +269,7 @@ public strictfp class RobotPlayer {
                     }
                 }
             } else {
-                if ((lastSeenSoup.x >= 0 && lastSeenSoup.y >= 0)) {
-                    //if 10 rounds has passed since we mined soup
-                    if (lastSeenSoup.distanceSquaredTo(rc.getLocation()) <= 4) {
-
-                        System.out.println("I got lost somehow???" + lastSeenSoup);
-                        lastSeenSoup = new MapLocation(-5, -5);
-                    } else {
-                        //Scour for soup
-                        if (!rc.senseFlooding(rc.getLocation().add(rc.getLocation().directionTo(lastSeenSoup)))) {
-                            if (!tryMove(rc.getLocation().directionTo(lastSeenSoup))) {
-                                tryMove(randomDirection());
-                            }
-                            System.out.println("Going to old soup" + lastSeenSoup);
-                        }
-                    }
-                } else {
-                    Direction rand = randomDirection();
-                    if (!rc.senseFlooding(rc.getLocation().add(rand))) {
-                        tryMove(rand);
-                        System.out.println("Scouting for more soup");
-                    }
-                }
-
+                //Find Soup
             }
         }
     }
@@ -355,8 +350,6 @@ public strictfp class RobotPlayer {
 
         /*if ((rc.getDirtCarrying()>=RobotType.LANDSCAPER.dirtLimit)&&(AttacksSent<2)){
             tryBlockchain(new int[]{1, rc.getLocation().x, rc.getLocation().y});
-
-
         }*/
 
     static void runDeliveryDrone() throws GameActionException {
@@ -451,6 +444,23 @@ public strictfp class RobotPlayer {
         //     return tryMove(Direction.NORTH);
     }
 
+    //Gets us the closest location in relation to a specified location
+    static MapLocation findClosest(Object[] array, MapLocation aLocation){
+        Object min = array[0];
+        for(Object pos: array){
+            if (aLocation.distanceSquaredTo((MapLocation) pos) > aLocation.distanceSquaredTo((MapLocation) min)) {
+                min = pos;
+            }
+        }
+
+        return (MapLocation) min;
+    }
+
+    //Finds closest location to you
+    static MapLocation findClosest(Object[] array){
+        return findClosest(array,rc.getLocation());
+    }
+
     /**
      * Attempts to move in a given direction.
      *
@@ -509,8 +519,29 @@ public strictfp class RobotPlayer {
         } else return false;
     }
 
+    //Cam's pretty lame blockchain stuff here until end of doc
+
+    static ArrayList<MapLocation> queueBlockchain(int id) throws GameActionException {
+        ArrayList<MapLocation> answer = new ArrayList<MapLocation>();
+        int block = lastCheckedBlock + 1;
+        for (int i = block; i < rc.getRoundNum(); i++){
+            int[][] messages = getMessages(i);
+            for (int e = 0; e < messages.length; e++){
+                if (messages[0][e] == id){
+                    answer.add(getMessageLocation(messages[1][e]));
+                }
+            }
+        }
+        lastCheckedBlock = rc.getRoundNum() - 1;
+        System.out.println(answer);
+        return answer;
+    }
 
     static void PutItOnTheChain(int a) throws GameActionException {
+        PutItOnTheChain(a,rc.getLocation());
+    }
+
+    static void PutItOnTheChain(int a,MapLocation pos) throws GameActionException {
         if(rc.getRoundNum() > 3) {
             int[] message = new int[2];
             String messageF = "";
@@ -528,8 +559,8 @@ public strictfp class RobotPlayer {
                     }
                     messageF += Integer.toString(a); //a needs to be a 4 digit integer
                 } else {
-                    int x = rc.getLocation().x;
-                    int y = rc.getLocation().y;
+                    int x = pos.x;
+                    int y = pos.y;
                     String tX = "";
                     String tY = "";
 
@@ -569,13 +600,6 @@ public strictfp class RobotPlayer {
         }
     }
 
-    static void testChain() throws GameActionException {
-        int[] a = {999999999};
-        if (rc.canSubmitTransaction(a, 1)) {
-            rc.submitTransaction(a, 1);
-        }
-    }
-
     static void PutItOnTheChain(String a) throws GameActionException {
         PutItOnTheChain(stringToInt(a));
     }
@@ -597,7 +621,6 @@ public strictfp class RobotPlayer {
 
     //Checks the checksum of each message
     static boolean isOurMessage(int[] x){
-
         boolean[] messageValid = new boolean[x.length];
         int count = 0;
         for(int a: x) {
@@ -629,35 +652,28 @@ public strictfp class RobotPlayer {
         return a/1000000;
     }
 
+
+    static MapLocation getMessageLocation(int a){
+        return new MapLocation (getMessage(a)/100,getMessage(a)%100);
+    }
+
     //Use this to get a list of messages from a block
-    static int[] getMessages(int block) throws GameActionException {
+    static int[][] getMessages(int block) throws GameActionException {
         Transaction[] Block = rc.getBlock(block);
-        int[] ourMessages = new int[Block.length];
+        int[][] ourMessages = new int[Block.length][2];
 
         int count = 0;
         for(Transaction submission: Block){
             if(isOurMessage(submission.getMessage())){
-                ourMessages[count] = getMessage(submission.getMessage()[0]);
+                ourMessages[count][0] = getMessage(submission.getMessage()[0]);
+                ourMessages[count][0] = getMessage(submission.getMessage()[1]);
                 count++;
             }
         }
         return ourMessages;
     }
 
-    //Gets the coordinates of a message we sent to the block chain
-    static int[] getMessageCoordinates(int block) throws GameActionException {
-        Transaction[] Block = rc.getBlock(block);
-        int[] ourMessages = new int[Block.length];
 
-        int count = 0;
-        for(Transaction submission: Block){
-            if(isOurMessage(submission.getMessage())){
-                ourMessages[count] = getMessage(submission.getMessage()[1]);
-                count++;
-            }
-        }
-        return ourMessages;
-    }
 
     static int checkSum(int a){
         int sum = 0;

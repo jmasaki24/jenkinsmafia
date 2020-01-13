@@ -27,8 +27,14 @@ public strictfp class RobotPlayer {
     static RobotType[] spawnedByMiner = {RobotType.REFINERY, RobotType.VAPORATOR, RobotType.DESIGN_SCHOOL,
             RobotType.FULFILLMENT_CENTER, RobotType.NET_GUN};
 
+
+    static final int HQID = 0;
+    static final int DESIGNSCHOOL = 123;
     static int turnCount; // number of turns since creation
     static int numMiners = 0;
+    static int numDesignSchools = 0;
+    static int numLandscapers = 0;
+    static int lastCheckedBlock = 0;
 
     static MapLocation myLoc;
     static MapLocation hqLoc;
@@ -58,7 +64,7 @@ public strictfp class RobotPlayer {
                 switch (rc.getType()) {
                     case HQ:                 runHQ();                break;
                     case MINER:              runMiner();             break;
-                    case REFINERY:           runRefinery();          break;
+                    //case REFINERY:           runRefinery();          break;
                     //case VAPORATOR:          runVaporator();         break;
                     //case DESIGN_SCHOOL:      runDesignSchool();      break;
                     //case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
@@ -92,17 +98,29 @@ public strictfp class RobotPlayer {
                 getHqLocFromBlockchain();
             }
         }
+        //HQ now shoots drones
+        RobotInfo targets[] = rc.senseNearbyRobots(RobotType.NET_GUN.sensorRadiusSquared, rc.getTeam().opponent());
+        for (RobotInfo target : targets) {
+            if (rc.canShootUnit(target.ID)) {
+                rc.shootUnit(target.ID);
+            }
+        }
+
     }
 
     static void runHQ() throws GameActionException {
         if(turnCount == 1) {
             sendHqLoc(rc.getLocation());
         }
-        if(numMiners < 10) {
+        if(numMiners < 15) {
             for (Direction dir : directions)
                 if(tryBuild(RobotType.MINER, dir)){
                     numMiners++;
                 }
+        }
+        //Request a school next to base
+        if(rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost){
+            requestDesignSchool(rc.getLocation().add(randomDirection()));
         }
     }
 
@@ -175,17 +193,25 @@ public strictfp class RobotPlayer {
                 System.out.println("I'm moving to soupLocation[0]");
                 goTo(soupLocations.get(0));
             } else {
-                System.out.println("I'm moving randomly");
-                goTo(randomDirection());
+                System.out.println("I'm searching for soup, moving away from other miners");
+                RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared,rc.getTeam());
+                MapLocation nextPlace = rc.getLocation();
+                for (RobotInfo robot:robots){
+                    if (robot.type == RobotType.MINER){
+                        nextPlace = nextPlace.add(rc.getLocation().directionTo(robot.location).opposite());
+                    }
+                }
+                if(robots.length == 0){
+                    nextPlace.add(randomDirection());
+                }
+                System.out.println("Trying to go: " + rc.getLocation().directionTo(nextPlace));
+                if(nextPlace != rc.getLocation()){
+                    goTo(rc.getLocation().directionTo(nextPlace));
+                } else{
+                    goTo(randomDirection());
+                }
             }
         }
-    }
-
-
-    // a refinery literally can't do anything...
-    // maybe if it detects an enemy landscaper, it can request a drone to move it away?
-    static void runRefinery() throws GameActionException {
-        // System.out.println("Pollution: " + rc.sensePollution(rc.getLocation()));
     }
 
     // tries to move in the general direction of dir
@@ -339,7 +365,17 @@ public strictfp class RobotPlayer {
     public static void sendHqLoc(MapLocation loc) throws GameActionException {
         int[] message = new int[7];
         message[0] = teamSecret;
-        message[1] = 0;
+        message[1] = HQID;
+        message[2] = loc.x; // x coord of HQ
+        message[3] = loc.y; // y coord of HQ
+        if (rc.canSubmitTransaction(message, 3))
+            rc.submitTransaction(message, 3);
+    }
+
+    static void requestDesignSchool(MapLocation loc) throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = 123;
         message[2] = loc.x; // x coord of HQ
         message[3] = loc.y; // y coord of HQ
         if (rc.canSubmitTransaction(message, 3))
@@ -347,11 +383,10 @@ public strictfp class RobotPlayer {
     }
 
     public static void getHqLocFromBlockchain() throws GameActionException {
-        System.out.println("B L O C K C H A I N");
         for (int i = 1; i < rc.getRoundNum(); i++){
             for(Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();
-                if(mess[0] == teamSecret && mess[1] == 0){
+                if(mess[0] == teamSecret && mess[1] == HQID){
                     System.out.println("found the HQ!");
                     hqLoc = new MapLocation(mess[2], mess[3]);
                 }
@@ -402,5 +437,177 @@ public strictfp class RobotPlayer {
 
             }
         }
+    }
+
+    //Cam's pretty lame blockchain stuff here until end of doc
+
+    static ArrayList<MapLocation> queueBlockchain(int id) throws GameActionException {
+        ArrayList<MapLocation> answer = new ArrayList<MapLocation>();
+        int block = lastCheckedBlock + 1;
+        for (int i = block; i < rc.getRoundNum(); i++){
+            int[][] messages = getMessages(i);
+            for (int e = 0; e < messages.length; e++){
+                if (messages[0][e] == id){
+                    answer.add(getMessageLocation(messages[1][e]));
+                }
+            }
+        }
+        lastCheckedBlock = rc.getRoundNum() - 1;
+        System.out.println(answer);
+        return answer;
+    }
+
+    static void PutItOnTheChain(int a) throws GameActionException {
+        PutItOnTheChain(a,rc.getLocation());
+    }
+
+    static void PutItOnTheChain(int a,MapLocation pos) throws GameActionException {
+        if(rc.getRoundNum() > 3) {
+            int[] message = new int[2];
+            String messageF = "";
+            for (int i = 0; i < message.length; i++) {
+                if (i == 0) {
+                    //000 when entered becomes 0, this corrects for that
+                    if (a < 1000) {
+                        messageF += "0";
+                        if (a < 100) {
+                            messageF += "0";
+                            if (a < 10) {
+                                messageF += "0";
+                            }
+                        }
+                    }
+                    messageF += Integer.toString(a); //a needs to be a 4 digit integer
+                } else {
+                    int x = pos.x;
+                    int y = pos.y;
+                    String tX = "";
+                    String tY = "";
+
+                    if (x < 10) {
+                        tX += "0";
+                    }
+                    if (y < 10) {
+                        tY += "0";
+                    }
+                    messageF = (tX + (x + "" + tY) + y);//location x added to location
+                }
+                //add round number
+                //Protect against loss of zeroes
+                a = rc.getRoundNum();
+                if (a < 1000) {
+                    messageF += "0";
+                    if (a < 100) {
+                        messageF += "0";
+                        if (a < 10) {
+                            messageF += "0";
+                        }
+                    }
+                }
+                messageF = messageF + (rc.getRoundNum() % 1000); // add last 4 digits of round number
+                int sum = checkSum(messageF);
+                String addZero = "";
+                if (sum < 10) {
+                    addZero = "0";
+                }
+                messageF = messageF + addZero + sum;
+                message[i] = stringToInt(messageF);
+                System.out.println(messageF);
+            }
+            if (rc.canSubmitTransaction(message, 1)) {
+                rc.submitTransaction(message, 1);
+            }
+        }
+    }
+
+    static void PutItOnTheChain(String a) throws GameActionException {
+        PutItOnTheChain(stringToInt(a));
+    }
+
+    static int stringToInt(String a){
+        if (a.length() > 7){ // if string is too long for Integer.parseInt() cut it in half and do it on a smaller piece of the string
+            String aa = a.substring(0,a.length()/2);
+            String ab = a.substring(a.length()/2);
+
+            //recombine the smaller strings
+            int aaa = (int) (stringToInt(aa) * Math.pow(10,ab.length()));
+            int aba = stringToInt(ab);
+            return (aaa + aba);
+        } else{
+            return Integer.parseInt(a);
+        }
+    }
+
+
+    //Checks the checksum of each message
+    static boolean isOurMessage(int[] x){
+        boolean[] messageValid = new boolean[x.length];
+        int count = 0;
+        for(int a: x) {
+            int sum = a%100;
+            if(checkSum(a/100) == sum){
+                messageValid[count] = true;
+            } else{
+                messageValid[count] = false;
+            }
+            count++;
+        }
+        //check if all messages are valid
+        for(boolean a: messageValid){
+            if (!a){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static boolean isOurMessage(int block,int message) throws GameActionException {
+        Transaction[] thisBlock = rc.getBlock(block);
+        int[] x = thisBlock[message - 1].getMessage();
+        return isOurMessage(x);
+    }
+
+    //gets initial message from encrypted message
+    static int getMessage(int a){
+        return a/1000000;
+    }
+
+
+    static MapLocation getMessageLocation(int a){
+        return new MapLocation (getMessage(a)/100,getMessage(a)%100);
+    }
+
+    //Use this to get a list of messages from a block
+    static int[][] getMessages(int block) throws GameActionException {
+        Transaction[] Block = rc.getBlock(block);
+        int[][] ourMessages = new int[Block.length][2];
+
+        int count = 0;
+        for(Transaction submission: Block){
+            if(isOurMessage(submission.getMessage())){
+                ourMessages[count][0] = getMessage(submission.getMessage()[0]);
+                ourMessages[count][0] = getMessage(submission.getMessage()[1]);
+                count++;
+            }
+        }
+        return ourMessages;
+    }
+
+
+
+    static int checkSum(int a){
+        int sum = 0;
+        int temp = a;
+        //Add up all the digits
+        while (temp > 9) {
+            sum += temp % 10;
+            temp = temp / 10;
+        }
+        sum += temp;
+        return sum;
+    }
+
+    static int checkSum(String a){
+        return checkSum(stringToInt(a));
     }
 }
