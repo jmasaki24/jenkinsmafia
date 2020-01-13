@@ -22,6 +22,17 @@ public strictfp class RobotPlayer {
             Direction.NORTHWEST
     };
 
+    static Direction[] allDirections = {
+            Direction.NORTH,
+            Direction.NORTHEAST,
+            Direction.EAST,
+            Direction.SOUTHEAST,
+            Direction.SOUTH,
+            Direction.SOUTHWEST,
+            Direction.WEST,
+            Direction.NORTHWEST
+    };
+
     // from lectureplayer, could be deleted
     static RobotType[] spawnedByMiner = {RobotType.REFINERY, RobotType.VAPORATOR, RobotType.DESIGN_SCHOOL,
             RobotType.FULFILLMENT_CENTER, RobotType.NET_GUN};
@@ -67,7 +78,7 @@ public strictfp class RobotPlayer {
                     //case VAPORATOR:          runVaporator();         break;
                     case DESIGN_SCHOOL:      runDesignSchool();      break;
                     //case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
-                    //case LANDSCAPER:         runLandscaper();        break;
+                    case LANDSCAPER:         runLandscaper();        break;
                     //case DELIVERY_DRONE:     runDeliveryDrone();     break;
                     //case NET_GUN:            runNetGun();            break;
                 }
@@ -83,8 +94,69 @@ public strictfp class RobotPlayer {
 
     }
 
-    static void runDesignSchool(){
-        System.out.println("yay");
+    static void runDesignSchool() throws GameActionException {
+        for (Direction dir: directions){
+            tryBuild(RobotType.LANDSCAPER,dir);
+        }
+    }
+
+    static void runLandscaper() throws GameActionException {
+
+        RobotInfo[] robot = rc.senseNearbyRobots(RobotType.LANDSCAPER.sensorRadiusSquared, rc.getTeam());
+        for (RobotInfo robo : robot) {
+            if (robo.team == rc.getTeam()) {
+                //if we see a friendly refinery or hq
+                if (robo.type == RobotType.HQ) {
+                    hqLoc = robo.location;
+                }
+            }
+        }
+
+        System.out.println("I'm building");
+
+        int distance = (myLoc.add(dir).distanceSquaredTo(hqLoc));
+        
+
+        if (hqLoc.x >= 0 && hqLoc.y >= 0) {
+            //we are in position, prepare to deliver load
+            if (((hqLoc.distanceSquaredTo(rc.getLocation()) == 8) || (hqLoc.distanceSquaredTo(rc.getLocation()) == 4) || rc.senseElevation(rc.getLocation())>=7 || rc.senseElevation(rc.getLocation())<=0) || rc.getRoundNum()>500) {
+                MapLocation ourPos = rc.getLocation();
+                Direction dir = randomAllDirection();
+
+                RobotInfo[] robots = rc.senseNearbyRobots(RobotType.LANDSCAPER.sensorRadiusSquared, rc.getTeam());
+                int count = 0;
+                for (RobotInfo robo : robots) {
+                    if (robo.type == RobotType.LANDSCAPER) {
+                        count++;
+                    }
+                }
+                // If the ring is not full of landscapers AKA not complete
+                if (count >= 8) {
+
+                }
+            }
+            if (hqLoc.distanceSquaredTo(rc.getLocation()) > 8) {
+                if (!tryMove(rc.getLocation().directionTo(hqLoc))) {
+                    if (!tryMove(rc.getLocation().directionTo(hqLoc).rotateLeft())) {
+                        tryMove(randomDirection());
+                    }
+                }
+            } else if (hqLoc.distanceSquaredTo(rc.getLocation()) == 5){
+                if (!tryMove(rc.getLocation().directionTo(hqLoc))) {
+                    if (!tryMove(rc.getLocation().directionTo(hqLoc).rotateLeft())) {
+                        tryMove(rc.getLocation().directionTo(hqLoc).rotateRight());
+                    }
+                }
+            }
+            else if (((hqLoc.distanceSquaredTo(rc.getLocation()) != 4) && (hqLoc.distanceSquaredTo(rc.getLocation()) != 8))) { //if in the wrong spot relocate
+                if (!tryMove(rc.getLocation().directionTo(hqLoc))){
+                    if (!tryMove(rc.getLocation().directionTo(hqLoc).opposite())) {
+                        tryMove(randomDirection());
+                    }
+                }
+
+            }
+        }
     }
 
     static void findHQ() throws GameActionException {
@@ -289,6 +361,10 @@ public strictfp class RobotPlayer {
      */
     static Direction randomDirection() {
         return directions[(int) (Math.random() * directions.length)];
+    }
+
+    static Direction randomAllDirection() {
+        return allDirections[(int) (Math.random() * allDirections.length)];
     }
 
     static boolean tryDig() throws GameActionException {
