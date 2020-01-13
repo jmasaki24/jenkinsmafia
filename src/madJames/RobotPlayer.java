@@ -117,10 +117,6 @@ public strictfp class RobotPlayer {
                     numMiners++;
                 }
         }
-        //Request a school next to base
-        if(rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost){
-            requestDesignSchool(rc.getLocation().add(randomDirection()));
-        }
     }
 
     static void runMiner() throws GameActionException {
@@ -131,10 +127,13 @@ public strictfp class RobotPlayer {
         myLoc = rc.getLocation();
 
         // TODO: 1/12/2020 maybe have the first priority be: run away from flood?
-        // first, try to refine soup in all directions
-        for (Direction dir : directions)
-            if (tryRefine(dir))
-                System.out.println("I refined soup! " + rc.getTeamSoup());
+        // Better to deposit soup instead of refining
+        for (Direction dir : directions) {
+            if (rc.canDepositSoup(dir)) {
+                rc.depositSoup(dir, rc.getSoupCarrying());
+                System.out.println("Deposited soup into new refinery");
+            }
+        }
 
         // then, try to mine soup in all directions
         for (Direction dir : directions)
@@ -178,7 +177,11 @@ public strictfp class RobotPlayer {
 
             // how far away is enough to justify a new refinery?
             if (rc.getLocation().distanceSquaredTo(closestRefineryLoc) > 35) {
-                tryBuild(RobotType.REFINERY, randomDirection());
+                if(!tryBuild(RobotType.REFINERY, randomDirection())){ // if a new refinery can't be built go back to hq
+                    System.out.println("moved towards HQ");
+                    goTo(closestRefineryLoc);
+                    rc.setIndicatorLine(rc.getLocation(), closestRefineryLoc, 255, 0, 255);
+                }
             } else {
                 System.out.println("moved towards HQ");
                 goTo(closestRefineryLoc);
@@ -365,16 +368,6 @@ public strictfp class RobotPlayer {
         int[] message = new int[7];
         message[0] = teamSecret;
         message[1] = HQID;
-        message[2] = loc.x; // x coord of HQ
-        message[3] = loc.y; // y coord of HQ
-        if (rc.canSubmitTransaction(message, 3))
-            rc.submitTransaction(message, 3);
-    }
-
-    static void requestDesignSchool(MapLocation loc) throws GameActionException {
-        int[] message = new int[7];
-        message[0] = teamSecret;
-        message[1] = 123;
         message[2] = loc.x; // x coord of HQ
         message[3] = loc.y; // y coord of HQ
         if (rc.canSubmitTransaction(message, 3))
