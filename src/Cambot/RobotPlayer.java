@@ -114,32 +114,38 @@ public strictfp class RobotPlayer {
             }
         }
 
-
-        definitelyMove();
-
-        //definitelyDigDirt();
-    }
-
-    static void definitelyMove() throws GameActionException {
-        definitelyMove(0);
-    }
-
-    static void definitelyMove(int count) throws GameActionException {
         Direction dir = randomDirection();
         int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
         System.out.println(distance);
         if(distance <= 8){
-            if ((dir != Direction.EAST && dir != Direction.NORTHEAST) && dir != Direction.SOUTHEAST){
-                if(!tryMove(dir)){
-                    if(count < 10){
-                        definitelyMove(count + 1);
-                    }
-                }
+            if ((dir != Direction.WEST && dir != Direction.NORTHWEST) && dir != Direction.SOUTHWEST){
+                tryMove(dir);
             }
         }
-        if(count < 10)
-            definitelyMove(count + 1);
+
+        //definitelyDigDirt();
     }
+
+//    static void definitelyMove() throws GameActionException {
+//        definitelyMove(0);
+//    }
+//
+//    static void definitelyMove(int count) throws GameActionException {
+//        Direction dir = randomDirection();
+//        int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
+//        System.out.println(distance);
+//        if(distance <= 8){
+//            if ((dir != Direction.EAST && dir != Direction.NORTHEAST) && dir != Direction.SOUTHEAST){
+//                if(!tryMove(dir)){
+//                    if(count < 10){
+//                        definitelyMove(count + 1);
+//                    }
+//                }
+//            }
+//        }
+//        if(count < 10)
+//            definitelyMove(count + 1);
+//    }
 
     static void definitelyDigDirt() throws GameActionException {
         definitelyDigDirt(0);
