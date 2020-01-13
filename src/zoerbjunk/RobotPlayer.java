@@ -228,7 +228,7 @@ public strictfp class RobotPlayer {
         if (gotSoup) {
             System.out.println("Have soup");
             // If near Refinery, check if safe v
-            if (lastSeenRefinery.distanceSquaredTo(rc.getLocation()) <= 8) {
+            if (lastSeenRefinery.distanceSquaredTo(rc.getLocation()) <= 13) {
                 System.out.println("Near refinery");
                 // If its safe to go to refinery, try to go
                 if (!rc.senseFlooding(rc.getLocation().add(rc.getLocation().directionTo(lastSeenRefinery)))) {
@@ -332,7 +332,7 @@ public strictfp class RobotPlayer {
 
         if (ourHQ.x >= 0 && ourHQ.y >= 0) {
             //we are in position, prepare to deliver load
-            if (((ourHQ.distanceSquaredTo(rc.getLocation()) == 8) || (ourHQ.distanceSquaredTo(rc.getLocation()) == 4) || rc.senseElevation(rc.getLocation())>=7 || rc.senseElevation(rc.getLocation())<=0) || rc.getRoundNum()>510) {
+            if (((ourHQ.distanceSquaredTo(rc.getLocation()) == 8) || (ourHQ.distanceSquaredTo(rc.getLocation()) == 4) || rc.senseElevation(rc.getLocation())>=7 || rc.senseElevation(rc.getLocation())<=0) || rc.getRoundNum()>500) {
                 MapLocation ourPos = rc.getLocation();
                 Direction dir = randomallDirection();
                 int distance = (ourPos.add(dir).distanceSquaredTo(ourHQ));
@@ -344,11 +344,9 @@ public strictfp class RobotPlayer {
                     }
                 }
                 // If the ring is not full of landscapers AKA not complete
-                if (count >= 6) {
+                if (count >= 8) {
                     System.out.println("I'm building");
-                    if (ourHQ.distanceSquaredTo(rc.getLocation()) == 8 && rc.canDepositDirt(dir)){
-                        rc.depositDirt(Direction.CENTER);
-                    } else if ((distance > 3) && (distance < 9) && rc.canDepositDirt(dir)) {
+                    if ((distance > 1) && (distance < 9) && rc.canDepositDirt(dir)) {
                         rc.depositDirt(dir);
                     } else {
                         if (rc.canDigDirt(dir)) {
@@ -364,11 +362,9 @@ public strictfp class RobotPlayer {
                     }
                 }
             } else if (ourHQ.distanceSquaredTo(rc.getLocation()) == 5){
-                if (!tryMove(randomsqDirection())){
-                    if (!tryMove(rc.getLocation().directionTo(ourHQ))) {
-                        if (!tryMove(rc.getLocation().directionTo(ourHQ).rotateLeft())) {
-                            tryMove(rc.getLocation().directionTo(ourHQ).rotateRight());
-                        }
+                if (!tryMove(rc.getLocation().directionTo(ourHQ))) {
+                    if (!tryMove(rc.getLocation().directionTo(ourHQ).rotateLeft())) {
+                        tryMove(rc.getLocation().directionTo(ourHQ).rotateRight());
                     }
                 }
             }
