@@ -123,7 +123,17 @@ public strictfp class RobotPlayer {
             }
         }
 
-        //definitelyDigDirt();
+        // if distance from hq is lessthan or equal to 2
+        dir = randomAllDirection();
+        distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
+        System.out.println(distance);
+        if ((distance > 3) && (distance < 9)) {
+            rc.depositDirt(dir);
+        } else {
+            if (rc.canDigDirt(dir)) {
+                rc.digDirt(dir);
+            }
+        }
     }
 
 //    static void definitelyMove() throws GameActionException {
