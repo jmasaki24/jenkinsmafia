@@ -174,8 +174,23 @@ public strictfp class RobotPlayer {
                 System.out.println("I'm moving to soupLocation[0]");
                 goTo(soupLocations.get(0));
             } else {
-                System.out.println("I'm moving randomly");
-                goTo(randomDirection());
+                System.out.println("I'm searching for soup, moving away from other miners");
+                RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared,rc.getTeam());
+                MapLocation nextPlace = rc.getLocation();
+                for (RobotInfo robot:robots){
+                    if (robot.type == RobotType.MINER){
+                        nextPlace = nextPlace.add(rc.getLocation().directionTo(robot.location).opposite());
+                    }
+                }
+                if(robots.length == 0){
+                    nextPlace.add(randomDirection());
+                }
+                System.out.println("Trying to go: " + rc.getLocation().directionTo(nextPlace));
+                if(nextPlace != rc.getLocation()){
+                    goTo(rc.getLocation().directionTo(nextPlace));
+                } else{
+                    goTo(randomDirection());
+                }
             }
         }
     }
@@ -402,4 +417,6 @@ public strictfp class RobotPlayer {
             }
         }
     }
+
+
 }
