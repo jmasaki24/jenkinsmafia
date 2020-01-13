@@ -218,10 +218,9 @@ public strictfp class RobotPlayer {
         }*/
 
         // build schools
-
-        System.out.println("Sees HQ" + seesHQ);
-        System.out.println("Sees School" + seesSchool);
-        System.out.println("Doesn't remember school" + (lastSeenSchool.x < 0 || lastSeenSchool.y < 0));
+        System.out.println("Sees HQ: " + seesHQ);
+        System.out.println("Sees School: " + seesSchool);
+        System.out.println("Doesn't remember school: " + (lastSeenSchool.x < 0 || lastSeenSchool.y < 0));
         if (!seesSchool && ((lastSeenSchool.x < 0 || lastSeenSchool.y < 0) && seesHQ)) {
             if (ourHQ.distanceSquaredTo(rc.getLocation()) > 8) {
                 moved = true;
