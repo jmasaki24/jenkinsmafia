@@ -26,8 +26,13 @@ public strictfp class RobotPlayer {
     static RobotType[] spawnedByMiner = {RobotType.REFINERY, RobotType.VAPORATOR, RobotType.DESIGN_SCHOOL,
             RobotType.FULFILLMENT_CENTER, RobotType.NET_GUN};
 
+
+    static final int HQID = 0;
+    static final int DESIGNSCHOOL = 123;
     static int turnCount; // number of turns since creation
     static int numMiners = 0;
+    static int numDesignSchools = 0;
+    static int numLandscapers = 0;
 
     static MapLocation myLoc;
     static MapLocation hqLoc;
@@ -57,11 +62,11 @@ public strictfp class RobotPlayer {
                 switch (rc.getType()) {
                     case HQ:                 runHQ();                break;
                     case MINER:              runMiner();             break;
-                    case REFINERY:           runRefinery();          break;
+                    //case REFINERY:           runRefinery();          break;
                     //case VAPORATOR:          runVaporator();         break;
-                    //case DESIGN_SCHOOL:      runDesignSchool();      break;
+                    case DESIGN_SCHOOL:      runDesignSchool();      break;
                     //case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
-                    //case LANDSCAPER:         runLandscaper();        break;
+                    case LANDSCAPER:         runLandscaper();        break;
                     //case DELIVERY_DRONE:     runDeliveryDrone();     break;
                     //case NET_GUN:            runNetGun();            break;
                 }
@@ -74,6 +79,13 @@ public strictfp class RobotPlayer {
                 e.printStackTrace();
             }
         }
+
+    }
+
+    private static void runLandscaper() {
+    }
+
+    private static void runDesignSchool() {
 
     }
 
@@ -91,6 +103,14 @@ public strictfp class RobotPlayer {
                 getHqLocFromBlockchain();
             }
         }
+        //HQ now shoots drones
+        RobotInfo targets[] = rc.senseNearbyRobots(RobotType.NET_GUN.sensorRadiusSquared, rc.getTeam().opponent());
+        for (RobotInfo target : targets) {
+            if (rc.canShootUnit(target.ID)) {
+                rc.shootUnit(target.ID);
+            }
+        }
+
     }
 
     static void runHQ() throws GameActionException {
@@ -102,6 +122,10 @@ public strictfp class RobotPlayer {
                 if(tryBuild(RobotType.MINER, dir)){
                     numMiners++;
                 }
+        }
+        //Request a school next to base
+        if(rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost){
+            requestDesignSchool(rc.getLocation().add(randomDirection()));
         }
     }
 
@@ -193,13 +217,6 @@ public strictfp class RobotPlayer {
                 }
             }
         }
-    }
-
-
-    // a refinery literally can't do anything...
-    // maybe if it detects an enemy landscaper, it can request a drone to move it away?
-    static void runRefinery() throws GameActionException {
-        // System.out.println("Pollution: " + rc.sensePollution(rc.getLocation()));
     }
 
     // tries to move in the general direction of dir
@@ -353,7 +370,17 @@ public strictfp class RobotPlayer {
     public static void sendHqLoc(MapLocation loc) throws GameActionException {
         int[] message = new int[7];
         message[0] = teamSecret;
-        message[1] = 0;
+        message[1] = HQID;
+        message[2] = loc.x; // x coord of HQ
+        message[3] = loc.y; // y coord of HQ
+        if (rc.canSubmitTransaction(message, 3))
+            rc.submitTransaction(message, 3);
+    }
+
+    static void requestDesignSchool(MapLocation loc) throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = 123;
         message[2] = loc.x; // x coord of HQ
         message[3] = loc.y; // y coord of HQ
         if (rc.canSubmitTransaction(message, 3))
@@ -361,11 +388,10 @@ public strictfp class RobotPlayer {
     }
 
     public static void getHqLocFromBlockchain() throws GameActionException {
-        System.out.println("B L O C K C H A I N");
         for (int i = 1; i < rc.getRoundNum(); i++){
             for(Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();
-                if(mess[0] == teamSecret && mess[1] == 0){
+                if(mess[0] == teamSecret && mess[1] == HQID){
                     System.out.println("found the HQ!");
                     hqLoc = new MapLocation(mess[2], mess[3]);
                 }
@@ -417,6 +443,4 @@ public strictfp class RobotPlayer {
             }
         }
     }
-
-
 }
