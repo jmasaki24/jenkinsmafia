@@ -10,7 +10,6 @@ import java.util.ArrayList;
 
 public strictfp class RobotPlayer {
     static RobotController rc;
-    static int lastCheckedBlock = 0;
 
     static Direction[] directions = {
             Direction.NORTH,
@@ -34,6 +33,7 @@ public strictfp class RobotPlayer {
     static int numMiners = 0;
     static int numDesignSchools = 0;
     static int numLandscapers = 0;
+    static int lastCheckedBlock = 0;
 
     static MapLocation myLoc;
     static MapLocation hqLoc;
@@ -65,9 +65,9 @@ public strictfp class RobotPlayer {
                     case MINER:              runMiner();             break;
                     //case REFINERY:           runRefinery();          break;
                     //case VAPORATOR:          runVaporator();         break;
-                    case DESIGN_SCHOOL:      runDesignSchool();      break;
+                    //case DESIGN_SCHOOL:      runDesignSchool();      break;
                     //case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
-                    case LANDSCAPER:         runLandscaper();        break;
+                    //case LANDSCAPER:         runLandscaper();        break;
                     //case DELIVERY_DRONE:     runDeliveryDrone();     break;
                     //case NET_GUN:            runNetGun();            break;
                 }
@@ -80,13 +80,6 @@ public strictfp class RobotPlayer {
                 e.printStackTrace();
             }
         }
-
-    }
-
-    private static void runLandscaper() {
-    }
-
-    private static void runDesignSchool() {
 
     }
 
@@ -118,7 +111,7 @@ public strictfp class RobotPlayer {
         if(turnCount == 1) {
             sendHqLoc(rc.getLocation());
         }
-        if(numMiners < 10) {
+        if(numMiners < 15) {
             for (Direction dir : directions)
                 if(tryBuild(RobotType.MINER, dir)){
                     numMiners++;
