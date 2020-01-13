@@ -138,7 +138,7 @@ public strictfp class RobotPlayer {
             }
         }
         if(count < 10)
-            definitelyMove(count);
+            definitelyMove(count + 1);
     }
 
     static void definitelyDigDirt() throws GameActionException {
