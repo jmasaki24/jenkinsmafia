@@ -65,7 +65,7 @@ public strictfp class RobotPlayer {
                     case MINER:              runMiner();             break;
                     //case REFINERY:           runRefinery();          break;
                     //case VAPORATOR:          runVaporator();         break;
-                    //case DESIGN_SCHOOL:      runDesignSchool();      break;
+                    case DESIGN_SCHOOL:      runDesignSchool();      break;
                     //case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
                     //case LANDSCAPER:         runLandscaper();        break;
                     //case DELIVERY_DRONE:     runDeliveryDrone();     break;
@@ -81,6 +81,10 @@ public strictfp class RobotPlayer {
             }
         }
 
+    }
+
+    static void runDesignSchool(){
+        System.out.println("yay");
     }
 
     static void findHQ() throws GameActionException {
@@ -145,9 +149,7 @@ public strictfp class RobotPlayer {
             System.out.println(hqLoc.distanceSquaredTo(myLoc));
             if(hqLoc.distanceSquaredTo(myLoc) == 2){
                 System.out.println("Trybuild school");
-                if(tryBuild(RobotType.DESIGN_SCHOOL,Direction.NORTH)){
-
-                } else{
+                if(!tryBuild(RobotType.DESIGN_SCHOOL,Direction.NORTH)){
                     tryBuild(RobotType.DESIGN_SCHOOL,Direction.EAST);
                 }
             }
@@ -395,16 +397,6 @@ public strictfp class RobotPlayer {
         int[] message = new int[7];
         message[0] = teamSecret;
         message[1] = HQID;
-        message[2] = loc.x; // x coord of HQ
-        message[3] = loc.y; // y coord of HQ
-        if (rc.canSubmitTransaction(message, 3))
-            rc.submitTransaction(message, 3);
-    }
-
-    static void requestDesignSchool(MapLocation loc) throws GameActionException {
-        int[] message = new int[7];
-        message[0] = teamSecret;
-        message[1] = 123;
         message[2] = loc.x; // x coord of HQ
         message[3] = loc.y; // y coord of HQ
         if (rc.canSubmitTransaction(message, 3))
