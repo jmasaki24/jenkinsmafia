@@ -1,19 +1,14 @@
 package player1;
-/*
- * highkey just following along with the lecture videos/series
- * -jamie
- */
-
 import battlecode.common.*;
+
+import java.awt.*;
+import java.lang.Math;
+import java.util.ArrayList;
+import java.util.Map;
+// from lectureplayer as of jan 11, 6:50pm EST
+
 public strictfp class RobotPlayer {
     static RobotController rc;
-    // initialized to negative stuff because we don't know how to check against a null object (if that's a thing in java)
-    static MapLocation lastSeenSoup = new MapLocation(-5, -5);
-    static int LastRoundMined = 0;
-    static MapLocation lastSeenRefinery = new MapLocation(-5, -5);
-    static MapLocation lastSeenAmazon = new MapLocation(-5, -5);
-    static Direction myHeading = Direction.WEST;
-    static MapLocation lastSeenWater = new MapLocation(-5, -5);
 
     static Direction[] directions = {
             Direction.NORTH,
@@ -29,6 +24,14 @@ public strictfp class RobotPlayer {
             RobotType.FULFILLMENT_CENTER, RobotType.NET_GUN};
 
     static int turnCount;
+    static MapLocation hqLoc;
+    static int numMiners = 0;
+    static int numDesignSchools = 0;
+    static ArrayList<MapLocation> soupLocations = new ArrayList<MapLocation>();
+    static ArrayList<MapLocation> refineryLocations = new ArrayList<MapLocation>();
+    static ArrayList<MapLocation> designSchoolLocations = new ArrayList<MapLocation>();
+    static ArrayList<MapLocation> vaporatorLocations = new ArrayList<MapLocation>();
+    static ArrayList<MapLocation> amazonLocations = new ArrayList<MapLocation>();
 
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
@@ -39,45 +42,29 @@ public strictfp class RobotPlayer {
 
         // This is the RobotController object. You use it to perform actions from this robot,
         // and to get information on its current status.
-        player1.RobotPlayer.rc = rc;
+        RobotPlayer.rc = rc;
 
         turnCount = 0;
 
+        System.out.println("I'm a " + rc.getType() + " and I just got created!");
         while (true) {
             turnCount += 1;
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
                 // Here, we've separated the controls into a different method for each RobotType.
                 // You can add the missing ones or rewrite this into your own control structure.
-                System.out.println("I'm a " + rc.getType() + "! Location " + rc.getLocation());
+                //System.out.println("I'm a " + rc.getType() + "! Location " + rc.getLocation());
+                findHQ();
                 switch (rc.getType()) {
-                    case HQ:
-                        runHQ();
-                        break;
-                    case MINER:
-                        runMiner();
-                        break;
-                    case REFINERY:
-                        runRefinery();
-                        break;
-                    case VAPORATOR:
-                        runVaporator();
-                        break;
-                    case DESIGN_SCHOOL:
-                        runDesignSchool();
-                        break;
-                    case FULFILLMENT_CENTER:
-                        runFulfillmentCenter();
-                        break;
-                    case LANDSCAPER:
-                        runLandscaper();
-                        break;
-                    case DELIVERY_DRONE:
-                        runDeliveryDrone();
-                        break;
-                    case NET_GUN:
-                        runNetGun();
-                        break;
+                    case HQ:                 runHQ();                break;
+                    case MINER:              runMiner();             break;
+                    case REFINERY:           runRefinery();          break;
+                    case VAPORATOR:          runVaporator();         break;
+                    case DESIGN_SCHOOL:      runDesignSchool();      break;
+                    case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
+                    case LANDSCAPER:         runLandscaper();        break;
+                    case DELIVERY_DRONE:     runDeliveryDrone();     break;
+                    case NET_GUN:            runNetGun();            break;
                 }
 
                 // Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
@@ -90,149 +77,86 @@ public strictfp class RobotPlayer {
         }
     }
 
+    static void findHQ() throws GameActionException {
+        if (hqLoc == null) {
+            // search surroundings for HQ
+            RobotInfo[] robots = rc.senseNearbyRobots();
+            for (RobotInfo robot : robots) {
+                if (robot.type == RobotType.HQ && robot.team == rc.getTeam()) {
+                    hqLoc = robot.location;
+                }
+            }
+            if(hqLoc == null) {
+                // if still null, search the blockchain
+                getHqLocFromBlockchain();
+            }
+        }
+    }
+
     static void runHQ() throws GameActionException {
-        if (rc.getRobotCount() <= 10 || rc.getRoundNum() < 35) {
+        if(turnCount == 1) {
+            sendHqLoc(rc.getLocation());
+        }
+        if(numMiners < 10) {
             for (Direction dir : directions)
-                tryBuild(RobotType.MINER, dir);
+                if(tryBuild(RobotType.MINER, dir)){
+                    numMiners++;
+                }
         }
     }
 
     static void runMiner() throws GameActionException {
-        boolean moved = false;
-        boolean inventoryFull = rc.getSoupCarrying() >= RobotType.MINER.soupLimit * .8;
-        boolean seesAmazon = false;
-        boolean mined = false;
+        updateUnitCounts();
+        updateUnitLocations();
+        checkIfSoupGone();
 
-        //Refine Soup Everywhere
+        // first, refine soup in all directions
         for (Direction dir : directions)
             if (tryRefine(dir))
                 System.out.println("I refined soup! " + rc.getTeamSoup());
-
-        //Mine Everywhere
-        for (Direction dir : directions) {
+        // then, mine soup in all directions
+        for (Direction dir : directions)
             if (tryMine(dir)) {
                 System.out.println("I mined soup! " + rc.getSoupCarrying());
-                moved = true;
-                mined = true;
-                LastRoundMined = rc.getRoundNum();
-                lastSeenSoup = rc.getLocation().add(dir);
+                MapLocation soupLoc = rc.getLocation().add(dir);
+                if (hqLoc.distanceSquaredTo(soupLoc) > 35) {
+                    if (tryBuild(RobotType.REFINERY, randomDirection())) {
+                        broadcastRefineryLocation(rc.getLocation().add(dir.opposite()));
+                    }
+                }
+                if (!soupLocations.contains(soupLoc)) {
+                    broadcastSoupLocation(soupLoc);
+                }
             }
+        if (numDesignSchools < 2){
+            tryBuild(RobotType.DESIGN_SCHOOL, randomDirection());
+
         }
 
-
-        //Vision and Memory
-        RobotInfo[] robot = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared, rc.getTeam());
-        for (RobotInfo robo : robot) {
-            if (robo.team == rc.getTeam()) {
-                //if we see a friendly refinery or hq
-                if (robo.type == RobotType.REFINERY || robo.type == RobotType.HQ) {
-                    inventoryFull = false;
-                    lastSeenRefinery = robo.location;
-                    System.out.println("Found a refinery!");
-                } else if (robo.type == RobotType.FULFILLMENT_CENTER) {
-                    seesAmazon = true;
-                    lastSeenAmazon = robo.location;
-                }
+        if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
+            System.out.println("I'm full of soup");
+            if (rc.getLocation().distanceSquaredTo(hqLoc) > 25) {
+                if (refineryLocations.size() == 0) {
+                    tryBuild(RobotType.REFINERY, randomDirection());
+                } else
+                    goTo(refineryLocations.get(0));
+            } else if(goTo(hqLoc))
+            // time to go back to the HQ
+                System.out.println("moved towards HQ");
+            rc.setIndicatorLine(rc.getLocation(), hqLoc, 255, 0, 255);
+        } else if (soupLocations.size() > 0) {
+            if(!pathfinder(soupLocations.get(0))) {
+                while(!tryMove(randomDirection())) {}
             }
-        }
-
-        //build some soup storage
-        if (inventoryFull) {
-            if (lastSeenRefinery.distanceSquaredTo(rc.getLocation()) > 60) {
-                //build one refinery in any direction you can if the last one is too far
-                boolean built = false;
-                for (Direction dir : directions) {
-                    if (!built) {
-                        if (tryBuild(RobotType.REFINERY, dir)) {
-                            System.out.println("I need to build a refinery!");
-                            built = true;
-                        }
-                    }
-                }
-                if (built) {
-                    for (Direction dir : directions) {
-                        if (rc.canDepositSoup(dir)) {
-                            rc.depositSoup(dir, rc.getSoupCarrying());
-                            System.out.println("Deposited soup into new refinery");
-                        }
-                    }
-                }
-            }
-        }
-
-        if (!seesAmazon && (lastSeenAmazon.x < 0 || lastSeenAmazon.y < 0)) {
-            boolean built = false;
-            for (Direction dir : directions) {
-                if (!built) {
-                    if (tryBuild(RobotType.FULFILLMENT_CENTER, randomDirection())) {
-                        built = true;
-                    }
-                }
-            }
-        }
-
-        //Where to move and when
-        if (!moved) {
-            if (inventoryFull) {
-                //Is the refinery real?
-                if (lastSeenRefinery.x >= 0 && lastSeenRefinery.y >= 0) {
-                    System.out.println("Heading to a refinery!");
-                    if (!rc.senseFlooding(rc.getLocation().add(rc.getLocation().directionTo(lastSeenRefinery)))) {
-                        if (!tryMove(rc.getLocation().directionTo(lastSeenRefinery))) {
-                            tryMove(randomDirection());
-                        }
-                        System.out.println("Going to a refinery!!" + lastSeenRefinery);
-                    }
-                } else {
-                    //build one refinery in any direction you can if the last one is too far
-                    boolean built = false;
-                    for (Direction dir : directions) {
-                        if (!built) {
-                            if (tryBuild(RobotType.REFINERY, dir)) {
-                                System.out.println("I need to build a refinery!");
-                                built = true;
-                            }
-                        }
-                    }
-                    if (built) {
-                        for (Direction dir : directions) {
-                            if (rc.canDepositSoup(dir)) {
-                                rc.depositSoup(dir, rc.getSoupCarrying());
-                                System.out.println("Deposited soup into new refinery");
-                            }
-                        }
-                    }
-                }
-            } else {
-                if ((lastSeenSoup.x >= 0 && lastSeenSoup.y >= 0)) {
-                    //if 10 rounds has passed since we mined soup
-                    if (lastSeenSoup.distanceSquaredTo(rc.getLocation()) <= 4) {
-
-                        System.out.println("I got lost somehow???" + lastSeenSoup);
-                        lastSeenSoup = new MapLocation(-5, -5);
-                    } else {
-                        //Scour for soup
-                        if (!rc.senseFlooding(rc.getLocation().add(rc.getLocation().directionTo(lastSeenSoup)))) {
-                            if (!tryMove(rc.getLocation().directionTo(lastSeenSoup))) {
-                                tryMove(randomDirection());
-                            }
-                            System.out.println("Going to old soup" + lastSeenSoup);
-                        }
-                    }
-                } else {
-                    Direction rand = randomDirection();
-                    if (!rc.senseFlooding(rc.getLocation().add(rand))) {
-                        tryMove(rand);
-                        System.out.println("Scouting for more soup");
-                    }
-                }
-
-            }
+            rc.setIndicatorLine(rc.getLocation(), soupLocations.get(0), 255, 255, 0);
+        } else if (goTo(randomDirection())) {
+            // otherwise, move randomly as usual
+            System.out.println("I moved randomly!");
         }
     }
 
     static void runRefinery() throws GameActionException {
-        System.out.println("Pollution: " + rc.sensePollution(rc.getLocation()));
+        // System.out.println("Pollution: " + rc.sensePollution(rc.getLocation()));
     }
 
     static void runVaporator() throws GameActionException {
@@ -240,64 +164,84 @@ public strictfp class RobotPlayer {
     }
 
     static void runDesignSchool() throws GameActionException {
-
+        if (!broadcastedCreation) {
+            broadcastDesignSchoolCreation(rc.getLocation());
+        }
+        for (Direction dir : directions)
+            if(tryBuild(RobotType.LANDSCAPER, dir))
+                System.out.println("made a landscaper");
     }
 
     static void runFulfillmentCenter() throws GameActionException {
-        for (Direction dir : directions) {
+        for (Direction dir : directions)
             tryBuild(RobotType.DELIVERY_DRONE, dir);
-        }
     }
 
     static void runLandscaper() throws GameActionException {
+        if(rc.getDirtCarrying() == 0){
+            tryDig();
+        }
 
+        MapLocation bestPlaceToBuildWall = null;
+        // find best place to build
+        if(hqLoc != null) {
+            int lowestElevation = 9999999;
+            for (Direction dir : directions) {
+                MapLocation tileToCheck = hqLoc.add(dir);
+                if(rc.getLocation().distanceSquaredTo(tileToCheck) < 4
+                        && rc.canDepositDirt(rc.getLocation().directionTo(tileToCheck))) {
+                    if (rc.senseElevation(tileToCheck) < lowestElevation) {
+                        lowestElevation = rc.senseElevation(tileToCheck);
+                        bestPlaceToBuildWall = tileToCheck;
+                    }
+                }
+            }
+        }
+
+        if (Math.random() < 0.4){
+            // build the wall
+            if (bestPlaceToBuildWall != null) {
+                rc.depositDirt(rc.getLocation().directionTo(bestPlaceToBuildWall));
+                rc.setIndicatorDot(bestPlaceToBuildWall, 0, 255, 0);
+                System.out.println("building a wall");
+            }
+        }
+
+        // otherwise try to get to the hq
+        if(hqLoc != null){
+            goTo(hqLoc);
+        } else {
+            tryMove(randomDirection());
+        }
     }
 
     static void runDeliveryDrone() throws GameActionException {
-        boolean moved = false;
-        if (rc.senseFlooding(rc.getLocation())) {
-            lastSeenWater = rc.getLocation();
-        }
         Team enemy = rc.getTeam().opponent();
         if (!rc.isCurrentlyHoldingUnit()) {
             // See if there are any enemy robots within striking range (distance 1 from lumberjack's radius)
-            RobotInfo[] robot = rc.senseNearbyRobots(GameConstants.DELIVERY_DRONE_PICKUP_RADIUS_SQUARED, enemy);
-            RobotInfo[] cows = rc.senseNearbyRobots(GameConstants.DELIVERY_DRONE_PICKUP_RADIUS_SQUARED, Team.NEUTRAL);
-            //Combines the two arrays into one
-            RobotInfo[] robots = new RobotInfo[robot.length + cows.length];
-            System.arraycopy(robot, 0, robots, 0, robot.length);
-            System.arraycopy(cows, 0, robots, robot.length, cows.length);
+            RobotInfo[] robots = rc.senseNearbyRobots(GameConstants.DELIVERY_DRONE_PICKUP_RADIUS_SQUARED, enemy);
 
             if (robots.length > 0) {
                 // Pick up a first robot within range
                 rc.pickUpUnit(robots[0].getID());
                 System.out.println("I picked up " + robots[0].getID() + "!");
             }
-            tryMove(randomDirection());
         } else {
-            if (rc.getLocation() == lastSeenWater) {
-                for (Direction dir : directions) {
-                    if (tryMove(dir)) {
-                        rc.dropUnit(Direction.CENTER.opposite());
-                    }
-                }
-            } else {
-                if (lastSeenWater.x < 0 || lastSeenWater.y < 0) {
-                    tryMove(randomDirection());
-                } else {
-                    if (!tryMove(rc.getLocation().directionTo(lastSeenWater))) {
-                        tryMove(randomDirection());
-                    }
-                }
-            }
+            // No close robots, so search for robots within sight radius
+            tryMove(randomDirection());
         }
     }
 
     static void runNetGun() throws GameActionException {
-        RobotInfo targets[] = rc.senseNearbyRobots(RobotType.NET_GUN.sensorRadiusSquared, rc.getTeam().opponent());
-        for (RobotInfo target : targets) {
-            if (rc.canShootUnit(target.ID)) {
-                rc.shootUnit(target.ID);
+
+    }
+
+    static void checkIfSoupGone() throws GameActionException {
+        if (soupLocations.size() > 0) {
+            MapLocation targetSoupLoc = soupLocations.get(0);
+            if (rc.canSenseLocation(targetSoupLoc)
+                    && rc.senseSoup(targetSoupLoc) == 0) {
+                soupLocations.remove(0);
             }
         }
     }
@@ -318,6 +262,26 @@ public strictfp class RobotPlayer {
      */
     static RobotType randomSpawnedByMiner() {
         return spawnedByMiner[(int) (Math.random() * spawnedByMiner.length)];
+    }
+
+    static boolean nearbyRobot(RobotType target) throws GameActionException {
+        RobotInfo[] robots = rc.senseNearbyRobots();
+        for(RobotInfo r : robots) {
+            if(r.getType() == target) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static boolean tryDig() throws GameActionException {
+        Direction dir = randomDirection();
+        if(rc.canDigDirt(dir)){
+            rc.digDirt(dir);
+            rc.setIndicatorDot(rc.getLocation().add(dir), 255, 0, 0);
+            return true;
+        }
+        return false;
     }
 
     static boolean tryMove() throws GameActionException {
@@ -344,24 +308,55 @@ public strictfp class RobotPlayer {
      * @throws GameActionException
      */
     static boolean tryMove(Direction dir) throws GameActionException {
-        // System.out.println("I am trying to move " + dir + "; " + rc.isReady() + " " + rc.getCooldownTurns() + " " + rc.canMove(dir));
-        if (rc.isReady() && rc.canMove(dir)) {
+        if (rc.isReady() && rc.canMove(dir) && !rc.senseFlooding(rc.getLocation().add(dir))) {
             rc.move(dir);
             return true;
         } else return false;
     }
 
+    /*
+     * A sorry attempt at pathfinding
+     */
+    static boolean pathfinder(MapLocation destination) throws GameActionException {
+        return pathfinder(rc.getLocation().directionTo(destination));
+    }
+
+    static boolean pathfinder(Direction dir) throws GameActionException {
+        while (!tryMove(dir)) {
+            dir = (dir.rotateRight());
+        }
+        return true;
+    }
+
+    // tries to move in the general direction of dir
+    static boolean goTo(Direction dir) throws GameActionException {
+        Direction[] toTry = {dir, dir.rotateLeft(), dir.rotateRight(), dir.rotateLeft().rotateLeft(), dir.rotateRight().rotateRight()};
+        for (Direction d : toTry){
+            if(tryMove(d))
+                return true;
+        }
+        return false;
+    }
+
+    // navigate towards a particular location
+    static boolean goTo(MapLocation destination) throws GameActionException {
+        return goTo(rc.getLocation().directionTo(destination));
+    }
+
+
+
     /**
      * Attempts to build a given robot in a given direction.
      *
      * @param type The type of the robot to build
-     * @param dir  The intended direction of movement
+     * @param dir The intended direction of movement
      * @return true if a move was performed
      * @throws GameActionException
      */
     static boolean tryBuild(RobotType type, Direction dir) throws GameActionException {
         if (rc.isReady() && rc.canBuildRobot(type, dir)) {
             rc.buildRobot(type, dir);
+            broadcastUnitCreation(type, rc.getLocation().add(dir));
             return true;
         } else return false;
     }
@@ -394,6 +389,7 @@ public strictfp class RobotPlayer {
         } else return false;
     }
 
+
     static void tryBlockchain() throws GameActionException {
         if (turnCount < 3) {
             int[] message = new int[7];
@@ -405,6 +401,150 @@ public strictfp class RobotPlayer {
         }
         // System.out.println(rc.getRoundMessages(turnCount-1));
     }
+
+    /* COMMUNICATIONS STUFF */
+    // all messages from our team should start with this so we can tell them apart
+    static final int teamSecret = 444444444;
+    // the second entry in every message tells us what kind of message it is. e.g. 0 means it contains the HQ location
+    static final String[] messageType = {
+            "HQ loc",
+            "design school created",
+            "soup location",
+    };
+
+    public static void sendHqLoc(MapLocation loc) throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = 0;
+        message[2] = loc.x; // x coord of HQ
+        message[3] = loc.y; // y coord of HQ
+        if (rc.canSubmitTransaction(message, 3))
+            rc.submitTransaction(message, 3);
+    }
+
+    public static void getHqLocFromBlockchain() throws GameActionException {
+        System.out.println("B L O C K C H A I N");
+        for (int i = 1; i < rc.getRoundNum(); i++){
+            for(Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if(mess[0] == teamSecret && mess[1] == 0){
+                    System.out.println("found the HQ!");
+                    hqLoc = new MapLocation(mess[2], mess[3]);
+                }
+            }
+        }
+    }
+
+    public static boolean broadcastedCreation = false;
+    public static void broadcastDesignSchoolCreation(MapLocation loc) throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = 1;
+        message[2] = loc.x; // x coord of HQ
+        message[3] = loc.y; // y coord of HQ
+        if (rc.canSubmitTransaction(message, 3)) {
+            rc.submitTransaction(message, 3);
+            broadcastedCreation = true;
+        }
+    }
+
+    // check the latest block for unit creation messages
+    public static void updateUnitCounts() throws GameActionException {
+        for(Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
+            int[] mess = tx.getMessage();
+            if(mess[0] == teamSecret && mess[1] == 1){
+                System.out.println("heard about a cool new school");
+                numDesignSchools += 1;
+            }
+        }
+    }
+
+    public static void broadcastSoupLocation(MapLocation loc ) throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = 2;
+        message[2] = loc.x; // x coord of HQ
+        message[3] = loc.y; // y coord of HQ
+        if (rc.canSubmitTransaction(message, 3)) {
+            rc.submitTransaction(message, 3);
+            System.out.println("new soup!" + loc);
+        }
+    }
+
+    public static void updateSoupLocations() throws GameActionException {
+        for(Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
+            int[] mess = tx.getMessage();
+            if(mess[0] == teamSecret && mess[1] == 2){
+                System.out.println("heard about a tasty new soup location");
+                soupLocations.add(new MapLocation(mess[2], mess[3]));
+            }
+        }
+    }
+
+    public static void broadcastRefineryLocation(MapLocation loc) throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = 3;
+        message[2] = loc.x; // x coord of Refinery
+        message[3] = loc.y; // y coord of Refinery
+        if (rc.canSubmitTransaction(message, 3)) {
+            rc.submitTransaction(message, 3);
+            System.out.println("new refinery!" + loc);
+        }
+    }
+
+    public static void updateRefineryLocation() throws GameActionException {
+        for(Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
+            int[] mess = tx.getMessage();
+            if(mess[0] == teamSecret && mess[1] == 3){
+                System.out.println("heard about a new refinery");
+                refineryLocations.add(new MapLocation(mess[2], mess[3]));
+            }
+        }
+    }
+
+    public static void broadcastUnitCreation(RobotType type, MapLocation loc) throws GameActionException {
+        int typeNumber;
+        switch (type) {
+            case COW:                     typeNumber = 1;     break;
+            case DELIVERY_DRONE:          typeNumber = 2;     break;
+            case DESIGN_SCHOOL:           typeNumber = 3;     break;
+            case FULFILLMENT_CENTER:      typeNumber = 4;     break;
+            case HQ:                      typeNumber = 5;     break;
+            case LANDSCAPER:              typeNumber = 6;     break;
+            case MINER:                   typeNumber = 7;     break;
+            case NET_GUN:                 typeNumber = 8;     break;
+            case REFINERY:                typeNumber = 9;     break;
+            case VAPORATOR:               typeNumber = 10;    break;
+            default:                      typeNumber = 0;     break;
+        }
+
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = 4;
+        message[2] = loc.x; // x coord of unit
+        message[3] = loc.y; // y coord of unit
+        message[4] = typeNumber;
+        if (rc.canSubmitTransaction(message, 3)) {
+            rc.submitTransaction(message, 3);
+            System.out.println("new refinery!" + loc);
+        }
+    }
+
+    public static void updateUnitLocations() throws GameActionException {
+        for(Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
+            int[] mess = tx.getMessage();
+            if(mess[0] == teamSecret && mess[1] == 4){
+                System.out.println("heard about a new unit");
+                switch (mess[4]) {
+                    case 3:     designSchoolLocations.add(new MapLocation(mess[2], mess[3]));   break;
+                    case 4:     amazonLocations.add(new MapLocation(mess[2], mess[3]));         break;
+                    case 9:     refineryLocations.add(new MapLocation(mess[2], mess[3]));       break;
+                    case 10:    vaporatorLocations.add(new MapLocation(mess[2], mess[3]));      break;
+                    default: break;
+                }
+
+            }
+        }
+    }
 }
-
-
