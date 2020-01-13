@@ -10,6 +10,7 @@ import java.util.ArrayList;
 
 public strictfp class RobotPlayer {
     static RobotController rc;
+    static int lastCheckedBlock = 0;
 
     static Direction[] directions = {
             Direction.NORTH,
@@ -442,5 +443,177 @@ public strictfp class RobotPlayer {
 
             }
         }
+    }
+
+    //Cam's pretty lame blockchain stuff here until end of doc
+
+    static ArrayList<MapLocation> queueBlockchain(int id) throws GameActionException {
+        ArrayList<MapLocation> answer = new ArrayList<MapLocation>();
+        int block = lastCheckedBlock + 1;
+        for (int i = block; i < rc.getRoundNum(); i++){
+            int[][] messages = getMessages(i);
+            for (int e = 0; e < messages.length; e++){
+                if (messages[0][e] == id){
+                    answer.add(getMessageLocation(messages[1][e]));
+                }
+            }
+        }
+        lastCheckedBlock = rc.getRoundNum() - 1;
+        System.out.println(answer);
+        return answer;
+    }
+
+    static void PutItOnTheChain(int a) throws GameActionException {
+        PutItOnTheChain(a,rc.getLocation());
+    }
+
+    static void PutItOnTheChain(int a,MapLocation pos) throws GameActionException {
+        if(rc.getRoundNum() > 3) {
+            int[] message = new int[2];
+            String messageF = "";
+            for (int i = 0; i < message.length; i++) {
+                if (i == 0) {
+                    //000 when entered becomes 0, this corrects for that
+                    if (a < 1000) {
+                        messageF += "0";
+                        if (a < 100) {
+                            messageF += "0";
+                            if (a < 10) {
+                                messageF += "0";
+                            }
+                        }
+                    }
+                    messageF += Integer.toString(a); //a needs to be a 4 digit integer
+                } else {
+                    int x = pos.x;
+                    int y = pos.y;
+                    String tX = "";
+                    String tY = "";
+
+                    if (x < 10) {
+                        tX += "0";
+                    }
+                    if (y < 10) {
+                        tY += "0";
+                    }
+                    messageF = (tX + (x + "" + tY) + y);//location x added to location
+                }
+                //add round number
+                //Protect against loss of zeroes
+                a = rc.getRoundNum();
+                if (a < 1000) {
+                    messageF += "0";
+                    if (a < 100) {
+                        messageF += "0";
+                        if (a < 10) {
+                            messageF += "0";
+                        }
+                    }
+                }
+                messageF = messageF + (rc.getRoundNum() % 1000); // add last 4 digits of round number
+                int sum = checkSum(messageF);
+                String addZero = "";
+                if (sum < 10) {
+                    addZero = "0";
+                }
+                messageF = messageF + addZero + sum;
+                message[i] = stringToInt(messageF);
+                System.out.println(messageF);
+            }
+            if (rc.canSubmitTransaction(message, 1)) {
+                rc.submitTransaction(message, 1);
+            }
+        }
+    }
+
+    static void PutItOnTheChain(String a) throws GameActionException {
+        PutItOnTheChain(stringToInt(a));
+    }
+
+    static int stringToInt(String a){
+        if (a.length() > 7){ // if string is too long for Integer.parseInt() cut it in half and do it on a smaller piece of the string
+            String aa = a.substring(0,a.length()/2);
+            String ab = a.substring(a.length()/2);
+
+            //recombine the smaller strings
+            int aaa = (int) (stringToInt(aa) * Math.pow(10,ab.length()));
+            int aba = stringToInt(ab);
+            return (aaa + aba);
+        } else{
+            return Integer.parseInt(a);
+        }
+    }
+
+
+    //Checks the checksum of each message
+    static boolean isOurMessage(int[] x){
+        boolean[] messageValid = new boolean[x.length];
+        int count = 0;
+        for(int a: x) {
+            int sum = a%100;
+            if(checkSum(a/100) == sum){
+                messageValid[count] = true;
+            } else{
+                messageValid[count] = false;
+            }
+            count++;
+        }
+        //check if all messages are valid
+        for(boolean a: messageValid){
+            if (!a){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static boolean isOurMessage(int block,int message) throws GameActionException {
+        Transaction[] thisBlock = rc.getBlock(block);
+        int[] x = thisBlock[message - 1].getMessage();
+        return isOurMessage(x);
+    }
+
+    //gets initial message from encrypted message
+    static int getMessage(int a){
+        return a/1000000;
+    }
+
+
+    static MapLocation getMessageLocation(int a){
+        return new MapLocation (getMessage(a)/100,getMessage(a)%100);
+    }
+
+    //Use this to get a list of messages from a block
+    static int[][] getMessages(int block) throws GameActionException {
+        Transaction[] Block = rc.getBlock(block);
+        int[][] ourMessages = new int[Block.length][2];
+
+        int count = 0;
+        for(Transaction submission: Block){
+            if(isOurMessage(submission.getMessage())){
+                ourMessages[count][0] = getMessage(submission.getMessage()[0]);
+                ourMessages[count][0] = getMessage(submission.getMessage()[1]);
+                count++;
+            }
+        }
+        return ourMessages;
+    }
+
+
+
+    static int checkSum(int a){
+        int sum = 0;
+        int temp = a;
+        //Add up all the digits
+        while (temp > 9) {
+            sum += temp % 10;
+            temp = temp / 10;
+        }
+        sum += temp;
+        return sum;
+    }
+
+    static int checkSum(String a){
+        return checkSum(stringToInt(a));
     }
 }
