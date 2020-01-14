@@ -3,11 +3,6 @@ import battlecode.common.*;
 import java.lang.Math;
 import java.util.ArrayList;
 
-// basically I'm writing this file from scratch since I'm getting frustrated and I think it's because I don't know
-// what's going on. rip me.
-
-// focused on pathfinding at the moment
-
 public strictfp class RobotPlayer {
     static RobotController rc;
 
@@ -43,6 +38,7 @@ public strictfp class RobotPlayer {
     static int turnCount; // number of turns since creation
     static int numMiners = 0;
     static int numDrones = 0;
+    static int numFC = 0;
     static int numDesignSchools = 0;
     static int numLandscapers = 0;
     static int lastCheckedBlock = 0;
@@ -57,7 +53,7 @@ public strictfp class RobotPlayer {
     static ArrayList<MapLocation> vaporatorLocations = new ArrayList<>();
     static ArrayList<MapLocation> amazonLocations = new ArrayList<>();
 
-    // used in blockchain transactions
+    // used in blockchain` transactions
     static final int teamSecret = 55555;
 
     @SuppressWarnings("unused")
@@ -80,9 +76,9 @@ public strictfp class RobotPlayer {
                     //case REFINERY:           runRefinery();          break;
                     //case VAPORATOR:          runVaporator();         break;
                     case DESIGN_SCHOOL:      runDesignSchool();      break;
-                    //case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
+                    case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
                     case LANDSCAPER:         runLandscaper();        break;
-                    //case DELIVERY_DRONE:     runDeliveryDrone();     break;
+                    case DELIVERY_DRONE:     runDeliveryDrone();     break;
                     //case NET_GUN:            runNetGun();            break;
                 }
 
@@ -98,7 +94,7 @@ public strictfp class RobotPlayer {
     }
 
     static void runDesignSchool() throws GameActionException {
-        if (rc.getTeamSoup()>=(7*RobotType.LANDSCAPER.cost)){
+        if (rc.getTeamSoup()>=(4*RobotType.LANDSCAPER.cost)){
             for (Direction dir: directions){
                 tryBuild(RobotType.LANDSCAPER,dir);
             }
@@ -117,33 +113,56 @@ public strictfp class RobotPlayer {
             }
         }
 
-
-        definitelyMove();
-
-        //definitelyDigDirt();
-    }
-
-    static void definitelyMove() throws GameActionException {
-        definitelyDigDirt(0);
-    }
-
-    static void definitelyMove(int count) throws GameActionException {
         Direction dir = randomDirection();
         int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
+        System.out.println(distance);
         if(distance <= 8){
-            if ((dir != Direction.EAST && dir != Direction.NORTHEAST) && dir != Direction.SOUTHEAST){
+            if ((dir != Direction.WEST && dir != Direction.NORTHWEST) && dir != Direction.SOUTHWEST){
                 tryMove(dir);
             }
         }
+
+        // if distance from hq is less than or equal to 2
+        dir = randomAllDirection();
+        distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
+        System.out.println(distance);
+        if ((distance > 3) && (distance < 9)) {
+            rc.depositDirt(dir);
+        } else {
+            if (rc.canDigDirt(dir)) {
+                rc.digDirt(dir);
+            }
+        }
     }
+
+//    static void definitelyMove() throws GameActionException {
+//        definitelyMove(0);
+//    }
+//
+//    static void definitelyMove(int count) throws GameActionException {
+//        Direction dir = randomDirection();
+//        int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
+//        System.out.println(distance);
+//        if(distance <= 8){
+//            if ((dir != Direction.EAST && dir != Direction.NORTHEAST) && dir != Direction.SOUTHEAST){
+//                if(!tryMove(dir)){
+//                    if(count < 10){
+//                        definitelyMove(count + 1);
+//                    }
+//                }
+//            }
+//        }
+//        if(count < 10)
+//            definitelyMove(count + 1);
+//    }
 
     static void definitelyDigDirt() throws GameActionException {
         definitelyDigDirt(0);
     }
 
     static void definitelyDigDirt(int count) throws GameActionException {
-        int distance = myLoc.distanceSquaredTo(hqLoc);
         Direction dir = randomAllDirection();
+        int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
         if ((distance > 4 && (distance < 9) && rc.canDepositDirt(dir))) {
             if(rc.canDepositDirt(dir)){
                 rc.depositDirt(dir);
@@ -188,16 +207,10 @@ public strictfp class RobotPlayer {
         if(turnCount == 1) {
             sendHqLoc(rc.getLocation());
         }
-        if(numMiners < 8) {
+        if(numMiners < 10) {
             for (Direction dir : directions)
                 if(tryBuild(RobotType.MINER, dir)){
                     numMiners++;
-                }
-        }
-        if (numDrones < 6 && numMiners>=8) {
-            for (Direction dir : directions)
-                if(tryBuild(RobotType.DELIVERY_DRONE, dir)){
-                    numDrones++;
                 }
         }
 
@@ -221,15 +234,21 @@ public strictfp class RobotPlayer {
         updateSoupLocations();
         checkIfSoupGone();
 
-
-
         myLoc = rc.getLocation();
 
         //Build 1 school when summoned into a specific position by HQ
         System.out.println(turnCount);
+
+        if(amazonLocations.size()!=0 && numMiners>=10) {
+            System.out.println("I want to fulfill");
+            for (Direction dir : directions)
+                if(tryBuild(RobotType.FULFILLMENT_CENTER, dir)){
+                    broadcastUnitCreation(RobotType.FULFILLMENT_CENTER, rc.adjacentLocation(dir));
+                }
+        }
         if(turnCount <= 13){
             System.out.println(hqLoc.distanceSquaredTo(myLoc));
-            if(hqLoc.distanceSquaredTo(myLoc) == 2){
+            if(myLoc.directionTo(hqLoc) == Direction.NORTHEAST && myLoc.distanceSquaredTo(hqLoc) == 2){
                 System.out.println("Trybuild school");
                 tryBuild(RobotType.DESIGN_SCHOOL,Direction.NORTH);
             }
@@ -325,6 +344,14 @@ public strictfp class RobotPlayer {
         }
     }
 
+    static void runFulfillmentCenter() throws GameActionException{
+        if (numDrones < 6 && numMiners>=8) {
+            for (Direction dir : directions)
+                if(tryBuild(RobotType.DELIVERY_DRONE, dir)){
+                    numDrones++;
+                }
+        }
+    }
     static void runDeliveryDrone() throws GameActionException {
         System.out.println("I'm a " + rc.getType() + "! Location " + rc.getLocation());
 
