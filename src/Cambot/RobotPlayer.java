@@ -243,7 +243,7 @@ public strictfp class RobotPlayer {
         System.out.println(turnCount);
         if(turnCount <= 13){
             System.out.println(hqLoc.distanceSquaredTo(myLoc));
-            if(hqLoc.distanceSquaredTo(myLoc) == 2){
+            if(myLoc.directionTo(hqLoc) == Direction.NORTHEAST){
                 System.out.println("Trybuild school");
                 tryBuild(RobotType.DESIGN_SCHOOL,Direction.NORTH);
             }
