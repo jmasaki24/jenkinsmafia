@@ -1,6 +1,5 @@
 dist/*
 build/*
-src/lectureplayer
 
 /matches
 /deploy/lib

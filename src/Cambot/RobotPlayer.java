@@ -123,7 +123,7 @@ public strictfp class RobotPlayer {
             }
         }
 
-        // if distance from hq is lessthan or equal to 2
+        // if distance from hq is less than or equal to 2
         dir = randomAllDirection();
         distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
         System.out.println(distance);

@@ -1,0 +1,6 @@
+[submodule "lectureplayer"]
+	path = lectureplayer
+	url = https://github.com/battlecode/lectureplayer.git
+[submodule "src/lectureplayer"]
+	path = src/lectureplayer
+	url = https://github.com/battlecode/lectureplayer.git
