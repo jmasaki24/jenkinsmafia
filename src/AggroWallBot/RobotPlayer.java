@@ -1,6 +1,7 @@
-package Cambot;
+package AggroWallBot;
+
 import battlecode.common.*;
-import java.lang.Math;
+
 import java.util.ArrayList;
 
 // basically I'm writing this file from scratch since I'm getting frustrated and I think it's because I don't know
@@ -39,6 +40,7 @@ public strictfp class RobotPlayer {
 
 
     static final int HQID = 0;
+    static final int EHQID = 232455;
     static final int DESIGNSCHOOL = 123;
     static int turnCount; // number of turns since creation
     static int numMiners = 0;
@@ -47,9 +49,11 @@ public strictfp class RobotPlayer {
     static int lastCheckedBlock = 0;
     static boolean shouldMakeBuilders = false;
     static final int NOTHINGID = 404;
+    static int hqToCheck = 0;
 
     static MapLocation myLoc;
     static MapLocation hqLoc;
+    static MapLocation EHqLoc = new MapLocation(-3,-3);
     static ArrayList<MapLocation> soupLocations = new ArrayList<>();
     static ArrayList<MapLocation> refineryLocations = new ArrayList<>();
     static ArrayList<MapLocation> designSchoolLocations = new ArrayList<>();
@@ -57,11 +61,11 @@ public strictfp class RobotPlayer {
     static ArrayList<MapLocation> amazonLocations = new ArrayList<>();
 
     // used in blockchain transactions
-    static final int teamSecret = 1231231231;
+    static final int teamSecret = 495839;
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
-        Cambot.RobotPlayer.rc = rc;
+        RobotPlayer.rc = rc;
 
         turnCount = 0;
 
@@ -97,51 +101,18 @@ public strictfp class RobotPlayer {
     }
 
     static void runDesignSchool() throws GameActionException {
-        if (rc.getTeamSoup()>=(4*RobotType.LANDSCAPER.cost)){
-            shouldMakeBuilders = true;
-        }
-        if (shouldMakeBuilders){
+        if (numLandscapers < 5){
             for (Direction dir: directions){
                 tryBuild(RobotType.LANDSCAPER,dir);
+                numLandscapers++;
             }
         }
-
-
     }
 
     static void runLandscaper() throws GameActionException {
         myLoc = rc.getLocation();
-        RobotInfo[] robot = rc.senseNearbyRobots(RobotType.LANDSCAPER.sensorRadiusSquared, rc.getTeam());
-        for (RobotInfo robo : robot) {
-            if (robo.team == rc.getTeam()) {
-                //if we see a friendly refinery or hq
-                if (robo.type == RobotType.HQ) {
-                    hqLoc = robo.location;
-                }
-            }
-        }
-
-        Direction dir = randomDirection();
-        int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
-        System.out.println(distance);
-        if(distance <= 8){
-            if ((dir != Direction.WEST && dir != Direction.NORTHWEST) && dir != Direction.SOUTHWEST){
-                tryMove(dir);
-            }
-        }
-
-        // if distance from hq is less than or equal to 2
-        dir = randomAllDirection();
-        distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
-        System.out.println(distance);
-        if ((distance > 3) && (distance < 9)) {
-            rc.depositDirt(dir);
-        } else {
-            if (rc.canDigDirt(dir)) {
-                rc.digDirt(dir);
-            }
-        }
     }
+
 
 //    static void definitelyMove() throws GameActionException {
 //        definitelyMove(0);
@@ -202,11 +173,22 @@ public strictfp class RobotPlayer {
                 getHqLocFromBlockchain();
             }
         }
-        //HQ now shoots drones
-        RobotInfo targets[] = rc.senseNearbyRobots(RobotType.NET_GUN.sensorRadiusSquared, rc.getTeam().opponent());
-        for (RobotInfo target : targets) {
-            if (rc.canShootUnit(target.ID)) {
-                rc.shootUnit(target.ID);
+    }
+
+    static void findEHQ() throws GameActionException {
+        if (EHqLoc.x < 0 || EHqLoc.y < 0) {
+            // search surroundings for HQ
+            RobotInfo[] robots = rc.senseNearbyRobots();
+            for (RobotInfo robot : robots) {
+                if (robot.type == RobotType.HQ && robot.team == rc.getTeam().opponent()) {
+                    EHqLoc = robot.location;
+                    System.out.println("Sending Enemy Location");
+                    sendEHqLoc(EHqLoc);
+                }
+            }
+            if(EHqLoc.x < 0 || EHqLoc.y < 0) {
+                // if still null, search the blockchain
+                getEHqLocFromBlockchain();
             }
         }
     }
@@ -215,7 +197,7 @@ public strictfp class RobotPlayer {
         if(turnCount == 1) {
             sendHqLoc(rc.getLocation());
         }
-        if(numMiners < 15) {
+        if(numMiners < 40) {
             for (Direction dir : directions)
                 if(tryBuild(RobotType.MINER, dir)){
                     numMiners++;
@@ -234,10 +216,23 @@ public strictfp class RobotPlayer {
             if(rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost + RobotType.MINER.cost){
                 tryBuild(RobotType.MINER,Direction.SOUTHWEST);
             }
+        } else{  //If we see the school we want to build 1 amazon
+            if(rc.getTeamSoup() > RobotType.FULFILLMENT_CENTER.cost + RobotType.MINER.cost){
+                tryBuild(RobotType.MINER,Direction.SOUTHEAST);
+            }
         }
         if (seeDesignSchool && rc.getRoundNum() > 300){
             for (Direction dir: directions){
                 tryBuild(RobotType.MINER,randomDirection());
+            }
+        }
+
+
+        //HQ now shoots drones
+        RobotInfo targets[] = rc.senseNearbyRobots(RobotType.NET_GUN.sensorRadiusSquared, rc.getTeam().opponent());
+        for (RobotInfo target : targets) {
+            if (rc.canShootUnit(target.ID)) {
+                rc.shootUnit(target.ID);
             }
         }
     }
@@ -247,118 +242,151 @@ public strictfp class RobotPlayer {
         updateSoupLocations();
         checkIfSoupGone();
 
-        //Build vaporators late game
-        if(rc.getRoundNum() > 780){
-            boolean seeHQ = false;
-            RobotInfo[] robots = rc.senseNearbyRobots();
-            for (RobotInfo robot: robots){
-                if (robot.type == RobotType.HQ){
-                    seeHQ = true;
-                }
-            }
-            if(seeHQ)
-                tryBuild(RobotType.VAPORATOR,randomDirection());
-            goTo((hqLoc));
-        }
-
-
+        boolean shouldMove = true;
         myLoc = rc.getLocation();
 
-        //Build 1 school when summoned into a specific position by HQ
-        System.out.println(turnCount);
-        if(turnCount <= 13){
-            System.out.println(hqLoc.distanceSquaredTo(myLoc));
-            if(myLoc.directionTo(hqLoc) == Direction.NORTHEAST && myLoc.distanceSquaredTo(hqLoc) == 2){
-                System.out.println("Trybuild school");
-                tryBuild(RobotType.DESIGN_SCHOOL,Direction.NORTH);
+        findEHQ();
+
+        if(EHqLoc.x > 0 || EHqLoc.y > 0){
+            System.out.println("Found ENEMY HQ");
+            if (myLoc.distanceSquaredTo(EHqLoc) > 5){
+                System.out.println("Going to ENEMY HQ:" + EHqLoc);
+                goTo(EHqLoc);
+            } else{
+                System.out.println("Standing my gound at ENEMY HQ");
+                for (Direction dir: directions){
+                    tryBuild(RobotType.NET_GUN,dir);
+                }
+                shouldMove = false;
             }
         }
 
-        // TODO: 1/12/2020 maybe have the first priority be: run away from flood?
-        // Better to deposit soup instead of refining
-        for (Direction dir : directions) {
-            if (rc.canDepositSoup(dir)) {
-                rc.depositSoup(dir, rc.getSoupCarrying());
-                System.out.println("Deposited soup into new refinery");
+        MapLocation[] potentialHQ = new MapLocation[] {new MapLocation((rc.getMapWidth() - hqLoc.x) - 1, (hqLoc.y) - 1), new MapLocation((rc.getMapWidth() - hqLoc.x) - 1, (rc.getMapHeight() - hqLoc.y) - 1)};
+        System.out.println(potentialHQ[0]);
+        System.out.println(potentialHQ[1]);
+
+
+        if(rc.getRoundNum() > 130){
+            if (rc.getID()%2 == 0){
+                if(myLoc.distanceSquaredTo(potentialHQ[hqToCheck]) > 5){
+                    System.out.println("Going to a potential HQ:" + potentialHQ);
+                    goTo(myLoc.directionTo(potentialHQ[hqToCheck]));
+                    rc.setIndicatorLine(rc.getLocation(),potentialHQ[hqToCheck],0,230,0);
+                } else{
+                    System.out.println("Nothing Here at potential HQ:" + potentialHQ);
+                    hqToCheck = 1;
+                }
             }
         }
 
-        // then, try to mine soup in all directions
-        for (Direction dir : directions)
-            if (tryMine(dir)) {
-                System.out.println("I mined soup! " + rc.getSoupCarrying());
-                MapLocation soupLoc = rc.getLocation().add(dir);
-                if (hqLoc.distanceSquaredTo(soupLoc) > 25) {
-                    if (tryBuild(RobotType.REFINERY, randomDirection())) {
-                        broadcastUnitCreation(RobotType.REFINERY, rc.adjacentLocation(dir.opposite()));
-                    }
-                }
-                if (!soupLocations.contains(soupLoc)) {
-                    broadcastSoupLocation(soupLoc);
+        if(shouldMove){
+            //Build 1 school when summoned into a specific position by HQ
+            System.out.println(turnCount);
+            if(turnCount <= 13){
+                System.out.println(hqLoc.distanceSquaredTo(myLoc));
+                if(myLoc.directionTo(hqLoc) == Direction.NORTHEAST && myLoc.distanceSquaredTo(hqLoc) == 2){
+                    System.out.println("Trybuild school");
+                    tryBuild(RobotType.DESIGN_SCHOOL,Direction.NORTH);
                 }
             }
 
-        //lastly, move
-
-        // if at soup limit, go to nearest refinery or hq.
-        // if hq or refinery is far away, build a refinery.
-        // if there are less than MINERLIMIT miners, tell hq to pause building miners????
-        if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
-            System.out.println("I'm full of soup");
-
-
-            //find closest refinery (including hq, should change that tho since HQ will become unreachable)
-            MapLocation closestRefineryLoc = hqLoc;
-
-            // will we ever have so many refineries that this is ineffective and we should rather sort the ArrayList
-            // by distance/accessibility all the time? idfk.
-            if (refineryLocations.size() != 0) {
-                for (MapLocation refinery : refineryLocations) {
-                    if (myLoc.distanceSquaredTo(refinery) < myLoc.distanceSquaredTo(closestRefineryLoc)) {
-                        closestRefineryLoc = refinery;
-                    }
+            //Build 1 school when summoned into a specific position by HQ
+            System.out.println(turnCount);
+            if(turnCount <= 13){
+                System.out.println(hqLoc.distanceSquaredTo(myLoc));
+                if(myLoc.directionTo(hqLoc) == Direction.NORTHWEST && myLoc.distanceSquaredTo(hqLoc) == 2){
+                    System.out.println("Trybuild Amazon");
+                    tryBuild(RobotType.FULFILLMENT_CENTER,Direction.NORTH);
                 }
             }
 
-            // TODO: 1/12/2020 an edge case: when all of the miners are far away and there isn't enough soup to make
-            // a refinery, they just sit there and wait for passive soup income.
+            // TODO: 1/12/2020 maybe have the first priority be: run away from flood?
+            // Better to deposit soup instead of refining
+            for (Direction dir : directions) {
+                if (rc.canDepositSoup(dir)) {
+                    rc.depositSoup(dir, rc.getSoupCarrying());
+                    System.out.println("Deposited soup into new refinery");
+                }
+            }
 
-            // how far away is enough to justify a new refinery?
-            if (rc.getLocation().distanceSquaredTo(closestRefineryLoc) > 35) {
-                if(!tryBuild(RobotType.REFINERY, randomDirection())){ // if a new refinery can't be built go back to hq
+            // then, try to mine soup in all directions
+            for (Direction dir : directions)
+                if (tryMine(dir)) {
+                    System.out.println("I mined soup! " + rc.getSoupCarrying());
+                    MapLocation soupLoc = rc.getLocation().add(dir);
+                    if (hqLoc.distanceSquaredTo(soupLoc) > 25) {
+                        if (tryBuild(RobotType.REFINERY, randomDirection())) {
+                            broadcastUnitCreation(RobotType.REFINERY, rc.adjacentLocation(dir.opposite()));
+                        }
+                    }
+                    if (!soupLocations.contains(soupLoc)) {
+                        broadcastSoupLocation(soupLoc);
+                    }
+                }
+
+            //lastly, move
+
+            // if at soup limit, go to nearest refinery or hq.
+            // if hq or refinery is far away, build a refinery.
+            // if there are less than MINERLIMIT miners, tell hq to pause building miners????
+            if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
+                System.out.println("I'm full of soup");
+
+
+                //find closest refinery (including hq, should change that tho since HQ will become unreachable)
+                MapLocation closestRefineryLoc = hqLoc;
+
+                // will we ever have so many refineries that this is ineffective and we should rather sort the ArrayList
+                // by distance/accessibility all the time? idfk.
+                if (refineryLocations.size() != 0) {
+                    for (MapLocation refinery : refineryLocations) {
+                        if (myLoc.distanceSquaredTo(refinery) < myLoc.distanceSquaredTo(closestRefineryLoc)) {
+                            closestRefineryLoc = refinery;
+                        }
+                    }
+                }
+
+                // TODO: 1/12/2020 an edge case: when all of the miners are far away and there isn't enough soup to make
+                // a refinery, they just sit there and wait for passive soup income.
+
+                // how far away is enough to justify a new refinery?
+                if (rc.getLocation().distanceSquaredTo(closestRefineryLoc) > 35) {
+                    if(!tryBuild(RobotType.REFINERY, randomDirection())){ // if a new refinery can't be built go back to hq
+                        System.out.println("moved towards HQ");
+
+                        goTo(closestRefineryLoc);
+                        rc.setIndicatorLine(rc.getLocation(), closestRefineryLoc, 255, 0, 255);
+                    }
+                } else {
                     System.out.println("moved towards HQ");
                     goTo(closestRefineryLoc);
                     rc.setIndicatorLine(rc.getLocation(), closestRefineryLoc, 255, 0, 255);
-                }
-            } else {
-                System.out.println("moved towards HQ");
-                goTo(closestRefineryLoc);
-                rc.setIndicatorLine(rc.getLocation(), closestRefineryLoc, 255, 0, 255);
 
+                }
             }
-        }
 
-        else {
-            if (soupLocations.size() > 0) {
-                System.out.println("I'm moving to soupLocation[0]");
-                goTo(soupLocations.get(0));
-            } else {
-                System.out.println("I'm searching for soup, moving away from other miners");
-                RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared,rc.getTeam());
-                MapLocation nextPlace = rc.getLocation();
-                for (RobotInfo robot:robots){
-                    if (robot.type == RobotType.MINER){
-                        nextPlace = nextPlace.add(rc.getLocation().directionTo(robot.location).opposite());
+            else {
+                if (soupLocations.size() > 0) {
+                    System.out.println("I'm moving to soupLocation[0]");
+                    goTo(soupLocations.get(0));
+                } else {
+                    System.out.println("I'm searching for soup, moving away from other miners");
+                    RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared,rc.getTeam());
+                    MapLocation nextPlace = rc.getLocation();
+                    for (RobotInfo robot:robots){
+                        if (robot.type == RobotType.MINER){
+                            nextPlace = nextPlace.add(rc.getLocation().directionTo(robot.location).opposite());
+                        }
                     }
-                }
-                if(robots.length == 0){
-                    nextPlace.add(randomDirection());
-                }
-                System.out.println("Trying to go: " + rc.getLocation().directionTo(nextPlace));
-                if(nextPlace != rc.getLocation()){
-                    goTo(rc.getLocation().directionTo(nextPlace));
-                } else{
-                    goTo(randomDirection());
+                    if(robots.length == 0){
+                        nextPlace.add(randomDirection());
+                    }
+                    System.out.println("Trying to go: " + rc.getLocation().directionTo(nextPlace));
+                    if(nextPlace != rc.getLocation()){
+                        goTo(rc.getLocation().directionTo(nextPlace));
+                    } else{
+                        goTo(randomDirection());
+                    }
                 }
             }
         }
@@ -526,6 +554,16 @@ public strictfp class RobotPlayer {
             rc.submitTransaction(message, 3);
     }
 
+    public static void sendEHqLoc(MapLocation loc) throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = EHQID;
+        message[2] = loc.x; // x coord of HQ
+        message[3] = loc.y; // y coord of HQ
+        if (rc.canSubmitTransaction(message, 3))
+            rc.submitTransaction(message, 3);
+    }
+
     public static void getHqLocFromBlockchain() throws GameActionException {
         for (int i = 1; i < rc.getRoundNum(); i++){
             for(Transaction tx : rc.getBlock(i)) {
@@ -533,6 +571,17 @@ public strictfp class RobotPlayer {
                 if(mess[0] == teamSecret && mess[1] == HQID){
                     System.out.println("found the HQ!");
                     hqLoc = new MapLocation(mess[2], mess[3]);
+                }
+            }
+        }
+    }
+
+    public static void getEHqLocFromBlockchain() throws GameActionException {
+        for (int i = 1; i < rc.getRoundNum(); i++){
+            for(Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if(mess[0] == teamSecret && mess[1] == EHQID){
+                    EHqLoc = new MapLocation(mess[2], mess[3]);
                 }
             }
         }

@@ -1,6 +1,7 @@
-package Cambot;
+package CambotvCambot;
+
 import battlecode.common.*;
-import java.lang.Math;
+
 import java.util.ArrayList;
 
 // basically I'm writing this file from scratch since I'm getting frustrated and I think it's because I don't know
@@ -57,11 +58,11 @@ public strictfp class RobotPlayer {
     static ArrayList<MapLocation> amazonLocations = new ArrayList<>();
 
     // used in blockchain transactions
-    static final int teamSecret = 1231231231;
+    static final int teamSecret = 9999999;
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
-        Cambot.RobotPlayer.rc = rc;
+        RobotPlayer.rc = rc;
 
         turnCount = 0;
 
@@ -247,7 +248,6 @@ public strictfp class RobotPlayer {
         updateSoupLocations();
         checkIfSoupGone();
 
-        //Build vaporators late game
         if(rc.getRoundNum() > 780){
             boolean seeHQ = false;
             RobotInfo[] robots = rc.senseNearbyRobots();
