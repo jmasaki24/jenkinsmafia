@@ -1,4 +1,4 @@
-package AggroWallBot;
+package ProperBlockchain;
 
 import battlecode.common.*;
 
@@ -38,19 +38,32 @@ public strictfp class RobotPlayer {
     static RobotType[] spawnedByMiner = {RobotType.REFINERY, RobotType.VAPORATOR, RobotType.DESIGN_SCHOOL,
             RobotType.FULFILLMENT_CENTER, RobotType.NET_GUN};
 
+    //Blockchain variables
+    static int lastCheckedBlock = 0;
 
-    static final int HQID = 0;
-    static final int EHQID = 232455;
-    static final int DESIGNSCHOOL = 123;
+    //Location MESSAGE Identifiers
+    static final int ourHQID = 0;
+    static final int enemyHQID = 1;
+    static final int SCHOOLID = 1234;
+    static final int SOUPID = 4395;
+    static final int LANDSCAPPERID = 5739;
+    static final int AMAZONID = 5947;
+    static final int VAPORATORID = 4938;
+    static final int NOTHINGID = 404; //used to remove locations
+
+    //All Location Identifiers in an array used for updating all locations
+    static final int[] MessageIDs = new int[] {ourHQID,enemyHQID,SCHOOLID,SOUPID,LANDSCAPPERID,AMAZONID,VAPORATORID};
+
+    //Example Command ID
+    static final int BUILDWALLID = 1945; //when heard, landscapers start wall
+
+    //Practical number storage
     static int turnCount; // number of turns since creation
     static int numMiners = 0;
-    static int numDesignSchools = 0;
     static int numLandscapers = 0;
-    static int lastCheckedBlock = 0;
-    static boolean shouldMakeBuilders = false;
-    static final int NOTHINGID = 404;
     static int hqToCheck = 0;
 
+    //Map
     static MapLocation myLoc;
     static MapLocation hqLoc;
     static MapLocation EHqLoc = new MapLocation(-3,-3);
@@ -60,7 +73,7 @@ public strictfp class RobotPlayer {
     static ArrayList<MapLocation> vaporatorLocations = new ArrayList<>();
     static ArrayList<MapLocation> amazonLocations = new ArrayList<>();
 
-    // used in blockchain transactions
+    // used in not good blockchain transactions
     static final int teamSecret = 495839;
 
     @SuppressWarnings("unused")
@@ -532,34 +545,45 @@ public strictfp class RobotPlayer {
         }
     }
 
-    public static void sendHqLoc(MapLocation loc) throws GameActionException {
-        int[] message = new int[7];
-        message[0] = teamSecret;
-        message[1] = HQID;
-        message[2] = loc.x; // x coord of HQ
-        message[3] = loc.y; // y coord of HQ
-        if (rc.canSubmitTransaction(message, 3))
-            rc.submitTransaction(message, 3);
+    public static void sendLoc(int id,MapLocation loc) throws GameActionException {
+        sendMessage(id,loc);
     }
 
-    public static void sendEHqLoc(MapLocation loc) throws GameActionException {
-        int[] message = new int[7];
-        message[0] = teamSecret;
-        message[1] = EHQID;
-        message[2] = loc.x; // x coord of HQ
-        message[3] = loc.y; // y coord of HQ
-        if (rc.canSubmitTransaction(message, 3))
-            rc.submitTransaction(message, 3);
-    }
+    public static void getLocFromBlockchain(int id,MapLocation loc) throws GameActionException {
+        if (id == ourHQID) {
 
-    public static void getHqLocFromBlockchain() throws GameActionException {
-        for (int i = 1; i < rc.getRoundNum(); i++){
-            for(Transaction tx : rc.getBlock(i)) {
-                int[] mess = tx.getMessage();
-                if(mess[0] == teamSecret && mess[1] == HQID){
-                    System.out.println("found the HQ!");
-                    hqLoc = new MapLocation(mess[2], mess[3]);
-                }
+        } else if (id == enemyHQID) {
+
+        } else {
+            MapLocation[] listToUpdate;
+            switch (id) {
+                case SCHOOLID:
+                    listToUpdate = 3;
+                    break;
+                case AMAZONID:
+                    listToUpdate = 4;
+                    break;
+                case LANDSCAPPERID:
+                    listToUpdate = 5;
+                    break;
+                case NOTHINGID:
+                    listToUpdate = 6;
+                    break;
+                case MINER:
+                    listToUpdate = 7;
+                    break;
+                case NET_GUN:
+                    listToUpdate = 8;
+                    break;
+                case REFINERY:
+                    listToUpdate = 9;
+                    break;
+                case VAPORATOR:
+                    listToUpdate = 10;
+                    break;
+                default:
+                    listToUpdate = 0;
+                    break;
             }
         }
     }
@@ -593,7 +617,7 @@ public strictfp class RobotPlayer {
 
         int[] message = new int[7];
         message[0] = teamSecret;
-        message[1] = typeNumber;
+        message[1] = 4;
         message[2] = loc.x; // x coord of unit
         message[3] = loc.y; // y coord of unit
         message[4] = typeNumber;
@@ -642,11 +666,15 @@ public strictfp class RobotPlayer {
         return answer;
     }
 
-    static void PutItOnTheChain(int a) throws GameActionException {
-        PutItOnTheChain(a,rc.getLocation());
+    static void sendMessage(int a) throws GameActionException {
+        sendMessage(a,rc.getLocation());
     }
 
-    static void PutItOnTheChain(int a,MapLocation pos) throws GameActionException {
+    static void sendMessage(String a) throws GameActionException {
+        sendMessage(stringToInt(a));
+    }
+
+    static void sendMessage(int a,MapLocation pos) throws GameActionException {
         int[] message = new int[2];
         String messageF = "";
         for (int i = 0; i < message.length; i++) {
@@ -702,11 +730,6 @@ public strictfp class RobotPlayer {
         if (rc.canSubmitTransaction(message, 1)) {
             rc.submitTransaction(message, 1);
         }
-    }
-
-
-    static void PutItOnTheChain(String a) throws GameActionException {
-        PutItOnTheChain(stringToInt(a));
     }
 
     static int stringToInt(String a){
