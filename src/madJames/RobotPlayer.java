@@ -434,6 +434,7 @@ public strictfp class RobotPlayer {
 
     //Cam's pretty lame blockchain stuff here until end of doc
 
+
     static ArrayList<MapLocation> queueBlockchain(int id) throws GameActionException {
         ArrayList<MapLocation> answer = new ArrayList<MapLocation>();
         int block = lastCheckedBlock + 1;
