@@ -46,6 +46,7 @@ public strictfp class RobotPlayer {
     static int numLandscapers = 0;
     static int lastCheckedBlock = 0;
     static boolean shouldMakeBuilders = false;
+    static final int NOTHINGID = 404;
 
     static MapLocation myLoc;
     static MapLocation hqLoc;
@@ -574,6 +575,10 @@ public strictfp class RobotPlayer {
             for (int e = 0; e < messages.length; e++){
                 if (messages[0][e] == id){
                     answer.add(getMessageLocation(messages[1][e]));
+                } else if (messages[0][e] == NOTHINGID){
+                    while(answer.contains(getMessageLocation(NOTHINGID))){
+                        answer.remove(getMessageLocation(NOTHINGID));
+                    }
                 }
             }
         }
