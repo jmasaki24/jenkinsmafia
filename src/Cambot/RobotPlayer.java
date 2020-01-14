@@ -566,14 +566,6 @@ public strictfp class RobotPlayer {
 
     //Cam's pretty lame blockchain stuff here until end of doc
 
-    static void queueBlockchain() throws GameActionException {
-        for (int i = lastCheckedBlock + 1; i < rc.getRoundNum(); i++) {
-            for (Transaction tx : rc.getBlock(i)) {
-
-            }
-        }
-    }
-
     static ArrayList<MapLocation> queueBlockchain(int id) throws GameActionException {
         ArrayList<MapLocation> answer = new ArrayList<MapLocation>();
         int block = lastCheckedBlock + 1;
