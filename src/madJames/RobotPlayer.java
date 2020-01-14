@@ -6,8 +6,11 @@ import java.util.ArrayList;
 
 // BEHAVIOR:    1. makes a fcenter and drone asap.
 //              2. flies drone around whole map, uploading certain locations to chain
-//              3. tests pathfinding for specific locations
-//              4. yay?
+//              3. make map of locations in each unit
+//              4. tests pathfinding for specific locations
+//              5.
+
+
 
 public strictfp class RobotPlayer {
     static RobotController rc;
@@ -31,10 +34,14 @@ public strictfp class RobotPlayer {
     static final int HQID = 0;
     static final int DESIGNSCHOOL = 123;
     static int turnCount; // number of turns since creation
-    static int numMiners = 0;
-    static int numDesignSchools = 0;
-    static int numLandscapers = 0;
+
+    static int numCows = 0; // simple blockchain id 1
+    static int numDrones = 0; // simple blockchain id 2
+    static int numLandscapers = 0; // simple blockchain id 6
+    static int numMiners = 0; // simple blockchain id 7
+
     static int lastCheckedBlock = 0;
+    static final int NOTHINGID = 404;
 
     static MapLocation myLoc;
     static MapLocation hqLoc;
@@ -55,6 +62,7 @@ public strictfp class RobotPlayer {
 
         System.out.println("I'm a " + rc.getType() + " and I just got created!");
         while (true) {
+            turnCount++;
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
                 // Here, we've separated the controls into a different method for each RobotType.
@@ -62,8 +70,12 @@ public strictfp class RobotPlayer {
                 //System.out.println("I'm a " + rc.getType() + "! Location " + rc.getLocation());
                 findHQ();
                 switch (rc.getType()) {
-                    case HQ:                 runHQ();                break;
-                    case MINER:              runMiner();             break;
+                    case HQ:
+                        runHQ();
+                        break;
+                    case MINER:
+                        runMiner();
+                        break;
                     //case REFINERY:           runRefinery();          break;
                     //case VAPORATOR:          runVaporator();         break;
                     //case DESIGN_SCHOOL:      runDesignSchool();      break;
@@ -93,7 +105,7 @@ public strictfp class RobotPlayer {
                     hqLoc = robot.location;
                 }
             }
-            if(hqLoc == null) {
+            if (hqLoc == null) {
                 // if still null, search the blockchain
                 getHqLocFromBlockchain();
             }
@@ -109,23 +121,52 @@ public strictfp class RobotPlayer {
     }
 
     static void runHQ() throws GameActionException {
-        if(turnCount == 1) {
+        if (turnCount >= 1) {
+            updateArmyInfo();
+        }
+        if (turnCount == 1) {
             sendHqLoc(rc.getLocation());
         }
-        if(numMiners < 15) {
-            for (Direction dir : directions)
-                if(tryBuild(RobotType.MINER, dir)){
-                    numMiners++;
-                }
+        System.out.println("numMiners: " + numMiners);
+
+        // don't build miners until we get a fullfillment center
+        if (numMiners >= 3 && amazonLocations.size() == 0) {
+            // do nothing
+            System.out.println("do nothing");
+        } else if (numMiners < 15) {
+            for (Direction dir : directions) {
+                tryBuild(RobotType.MINER, dir, numMiners);
+            }
+        }
+
+        hqBroadcastNumMiners(numMiners);
+
+    }
+
+    static void hqBroadcastNumMiners(int numMiners) throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = 3;
+        message[2] = 7;
+        message[3] = numMiners;
+        if (rc.canSubmitTransaction(message, 3)) {
+            rc.submitTransaction(message, 3);
+            System.out.println("broadcast miner!");
         }
     }
 
+
     static void runMiner() throws GameActionException {
-        updateUnitLocations();
+        updateArmyInfo();
         updateSoupLocations();
         checkIfSoupGone();
+        System.out.println("numMiners: " + numMiners);
 
         myLoc = rc.getLocation();
+        System.out.println("numMiners from miner" + numMiners);
+        if (myLoc.distanceSquaredTo(hqLoc) >= 16 && numMiners >= 3 && amazonLocations.size() <=1) {
+            tryBuild(RobotType.FULFILLMENT_CENTER, randomDirection());
+        }
 
         // TODO: 1/12/2020 maybe have the first priority be: run away from flood?
         // Better to deposit soup instead of refining
@@ -143,7 +184,7 @@ public strictfp class RobotPlayer {
                 MapLocation soupLoc = rc.getLocation().add(dir);
                 if (hqLoc.distanceSquaredTo(soupLoc) > 25) {
                     if (tryBuild(RobotType.REFINERY, randomDirection())) {
-                        broadcastUnitCreation(RobotType.REFINERY, rc.adjacentLocation(dir.opposite()));
+                        broadcastBuildingCreation(RobotType.REFINERY, rc.adjacentLocation(dir.opposite()));
                     }
                 }
                 if (!soupLocations.contains(soupLoc)) {
@@ -178,7 +219,7 @@ public strictfp class RobotPlayer {
 
             // how far away is enough to justify a new refinery?
             if (rc.getLocation().distanceSquaredTo(closestRefineryLoc) > 35) {
-                if(!tryBuild(RobotType.REFINERY, randomDirection())){ // if a new refinery can't be built go back to hq
+                if (!tryBuild(RobotType.REFINERY, randomDirection())) { // if a new refinery can't be built go back to hq
                     System.out.println("moved towards HQ");
                     goTo(closestRefineryLoc);
                     rc.setIndicatorLine(rc.getLocation(), closestRefineryLoc, 255, 0, 255);
@@ -189,28 +230,26 @@ public strictfp class RobotPlayer {
                 rc.setIndicatorLine(rc.getLocation(), closestRefineryLoc, 255, 0, 255);
 
             }
-        }
-
-        else {
+        } else {
             if (soupLocations.size() > 0) {
                 System.out.println("I'm moving to soupLocation[0]");
                 goTo(soupLocations.get(0));
             } else {
                 System.out.println("I'm searching for soup, moving away from other miners");
-                RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared,rc.getTeam());
+                RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared, rc.getTeam());
                 MapLocation nextPlace = rc.getLocation();
-                for (RobotInfo robot:robots){
-                    if (robot.type == RobotType.MINER){
+                for (RobotInfo robot : robots) {
+                    if (robot.type == RobotType.MINER) {
                         nextPlace = nextPlace.add(rc.getLocation().directionTo(robot.location).opposite());
                     }
                 }
-                if(robots.length == 0){
+                if (robots.length == 0) {
                     nextPlace.add(randomDirection());
                 }
                 System.out.println("Trying to go: " + rc.getLocation().directionTo(nextPlace));
-                if(nextPlace != rc.getLocation()){
+                if (nextPlace != rc.getLocation()) {
                     goTo(rc.getLocation().directionTo(nextPlace));
-                } else{
+                } else {
                     goTo(randomDirection());
                 }
             }
@@ -265,7 +304,7 @@ public strictfp class RobotPlayer {
 
     static boolean tryDig() throws GameActionException {
         Direction dir = randomDirection();
-        if(rc.canDigDirt(dir)){
+        if (rc.canDigDirt(dir)) {
             rc.digDirt(dir);
             rc.setIndicatorDot(rc.getLocation().add(dir), 255, 0, 0);
             return true;
@@ -301,14 +340,34 @@ public strictfp class RobotPlayer {
      * Attempts to build a given robot in a given direction.
      *
      * @param type The type of the robot to build
-     * @param dir The intended direction of movement
+     * @param dir  The intended direction of movement
      * @return true if a move was performed
      * @throws GameActionException
      */
     static boolean tryBuild(RobotType type, Direction dir) throws GameActionException {
         if (rc.isReady() && rc.canBuildRobot(type, dir)) {
+            System.out.println("trying to build " + type);
             rc.buildRobot(type, dir);
-            broadcastUnitCreation(type, rc.getLocation().add(dir));
+            // adds to array list in broadcastBuildingCreation
+            broadcastBuildingCreation(type, rc.getLocation().add(dir));
+            return true;
+        } else return false;
+    }
+
+    /**
+     * Attempts to build a given robot in a given direction.
+     *
+     * @param type The type of the robot to build
+     * @param dir  The intended direction of movement
+     * @return true if a move was performed
+     * @throws GameActionException
+     * @overload
+     */
+    static boolean tryBuild(RobotType type, Direction dir, int numUnits) throws GameActionException {
+        if (rc.isReady() && rc.canBuildRobot(type, dir)) {
+            System.out.println("trying to build " + type);
+            rc.buildRobot(type, dir);
+            broadcastUnitCreation(type, numUnits);
             return true;
         } else return false;
     }
@@ -341,9 +400,13 @@ public strictfp class RobotPlayer {
         } else return false;
     }
 
+    /**************************************************************************************************
+     * SIMPLE BLOCKCHAIN
+     * soup has id of 2, hq has id of HQID, unit has id of 3, building has id of 4
+     *
+     */
 
-
-    public static void broadcastSoupLocation(MapLocation loc ) throws GameActionException {
+    public static void broadcastSoupLocation(MapLocation loc) throws GameActionException {
         int[] message = new int[7];
         message[0] = teamSecret;
         message[1] = 2;
@@ -356,9 +419,9 @@ public strictfp class RobotPlayer {
     }
 
     public static void updateSoupLocations() throws GameActionException {
-        for(Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
+        for (Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
             int[] mess = tx.getMessage();
-            if(mess[0] == teamSecret && mess[1] == 2){
+            if (mess[0] == teamSecret && mess[1] == 2) {
                 System.out.println("heard about a tasty new soup location");
                 soupLocations.add(new MapLocation(mess[2], mess[3]));
             }
@@ -376,10 +439,10 @@ public strictfp class RobotPlayer {
     }
 
     public static void getHqLocFromBlockchain() throws GameActionException {
-        for (int i = 1; i < rc.getRoundNum(); i++){
-            for(Transaction tx : rc.getBlock(i)) {
+        for (int i = 1; i < rc.getRoundNum(); i++) {
+            for (Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();
-                if(mess[0] == teamSecret && mess[1] == HQID){
+                if (mess[0] == teamSecret && mess[1] == HQID) {
                     System.out.println("found the HQ!");
                     hqLoc = new MapLocation(mess[2], mess[3]);
                 }
@@ -387,20 +450,71 @@ public strictfp class RobotPlayer {
         }
     }
 
-    public static void broadcastUnitCreation(RobotType type, MapLocation loc) throws GameActionException {
+    // only used by hq, design center, and fulfillment center... until we decide how we're going to manage cows
+    //
+    public static void broadcastUnitCreation(RobotType type, int numUnits) throws GameActionException {
         int typeNumber;
         switch (type) {
-            case COW:                     typeNumber = 1;     break;
-            case DELIVERY_DRONE:          typeNumber = 2;     break;
-            case DESIGN_SCHOOL:           typeNumber = 3;     break;
-            case FULFILLMENT_CENTER:      typeNumber = 4;     break;
-            case HQ:                      typeNumber = 5;     break;
-            case LANDSCAPER:              typeNumber = 6;     break;
-            case MINER:                   typeNumber = 7;     break;
-            case NET_GUN:                 typeNumber = 8;     break;
-            case REFINERY:                typeNumber = 9;     break;
-            case VAPORATOR:               typeNumber = 10;    break;
-            default:                      typeNumber = 0;     break;
+            case COW:
+                typeNumber = 1;
+                numCows++;
+                break;
+            case DELIVERY_DRONE:
+                typeNumber = 2;
+                numDrones++;
+                break;
+            case LANDSCAPER:
+                typeNumber = 6;
+                numLandscapers++;
+                break;
+            case MINER:
+                typeNumber = 7;
+                numMiners++;
+                break;
+            default:
+                typeNumber = 0;
+                break;
+        }
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = 3;
+        message[2] = typeNumber;
+        message[3] = numUnits;
+        if (rc.canSubmitTransaction(message, 3)) {
+            rc.submitTransaction(message, 3);
+            System.out.println("new unit!");
+        }
+    }
+
+    // only used by miners
+    public static void broadcastBuildingCreation(RobotType type, MapLocation loc) throws GameActionException {
+        int typeNumber;
+        switch (type) {
+            case DESIGN_SCHOOL:
+                typeNumber = 3;
+                designSchoolLocations.add(loc);
+                break;
+            case FULFILLMENT_CENTER:
+                typeNumber = 4;
+                amazonLocations.add(loc);
+                break;
+            case HQ:
+                typeNumber = 5;
+                break;
+            case NET_GUN:
+                typeNumber = 8;
+                break;
+            case REFINERY:
+                typeNumber = 9;
+                refineryLocations.add(loc);
+                break;
+            case VAPORATOR:
+                typeNumber = 10;
+                vaporatorLocations.add(loc);
+                break;
+            default:
+                typeNumber = 0;
+                break;
         }
 
         int[] message = new int[7];
@@ -411,197 +525,54 @@ public strictfp class RobotPlayer {
         message[4] = typeNumber;
         if (rc.canSubmitTransaction(message, 3)) {
             rc.submitTransaction(message, 3);
-            System.out.println("new refinery!" + loc);
+            System.out.println("new building!" + loc);
         }
     }
 
-    public static void updateUnitLocations() throws GameActionException {
-        for(Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
+    // checks if message[1] is 3 (units) or 4 (buildings)
+    public static void updateArmyInfo() throws GameActionException {
+        for (Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
             int[] mess = tx.getMessage();
-            if(mess[0] == teamSecret && mess[1] == 4){
-                System.out.println("heard about a new unit");
+            if (mess[0] == teamSecret && mess[1] == 4) {
+                System.out.println("heard about a new building");
                 switch (mess[4]) {
-                    case 3:     designSchoolLocations.add(new MapLocation(mess[2], mess[3]));   break;
-                    case 4:     amazonLocations.add(new MapLocation(mess[2], mess[3]));         break;
-                    case 9:     refineryLocations.add(new MapLocation(mess[2], mess[3]));       break;
-                    case 10:    vaporatorLocations.add(new MapLocation(mess[2], mess[3]));      break;
-                    default: break;
-                }
-
-            }
-        }
-    }
-
-    //Cam's pretty lame blockchain stuff here until end of doc
-
-
-    static ArrayList<MapLocation> queueBlockchain(int id) throws GameActionException {
-        ArrayList<MapLocation> answer = new ArrayList<MapLocation>();
-        int block = lastCheckedBlock + 1;
-        for (int i = block; i < rc.getRoundNum(); i++){
-            int[][] messages = getMessages(i);
-            for (int e = 0; e < messages.length; e++){
-                if (messages[0][e] == id){
-                    answer.add(getMessageLocation(messages[1][e]));
+                    case 3:
+                        designSchoolLocations.add(new MapLocation(mess[2], mess[3]));
+                        break;
+                    case 4:
+                        amazonLocations.add(new MapLocation(mess[2], mess[3]));
+                        break;
+                    case 9:
+                        refineryLocations.add(new MapLocation(mess[2], mess[3]));
+                        break;
+                    case 10:
+                        vaporatorLocations.add(new MapLocation(mess[2], mess[3]));
+                        break;
+                    default:
+                        break;
                 }
             }
-        }
-        lastCheckedBlock = rc.getRoundNum() - 1;
-        System.out.println(answer);
-        return answer;
-    }
 
-    static void PutItOnTheChain(int a) throws GameActionException {
-        PutItOnTheChain(a,rc.getLocation());
-    }
+            if (mess[0] == teamSecret && mess[1] == 3) {
+                System.out.println("heard about a new unit");
+                switch (mess[2]) {
+                    case 1:
+                        /* something about a cow. moo my ass */
+                        break;
+                    case 2:
+                        numDrones = mess[3];
+                        break;
+                    case 6:
+                        numLandscapers = mess[3];
+                        break;
+                    case 7:
+                        numMiners = mess[3];
+                        break;
+                    default:
+                        break;
 
-    static void PutItOnTheChain(int a,MapLocation pos) throws GameActionException {
-        if(rc.getRoundNum() > 3) {
-            int[] message = new int[2];
-            String messageF = "";
-            for (int i = 0; i < message.length; i++) {
-                if (i == 0) {
-                    //000 when entered becomes 0, this corrects for that
-                    if (a < 1000) {
-                        messageF += "0";
-                        if (a < 100) {
-                            messageF += "0";
-                            if (a < 10) {
-                                messageF += "0";
-                            }
-                        }
-                    }
-                    messageF += Integer.toString(a); //a needs to be a 4 digit integer
-                } else {
-                    int x = pos.x;
-                    int y = pos.y;
-                    String tX = "";
-                    String tY = "";
-
-                    if (x < 10) {
-                        tX += "0";
-                    }
-                    if (y < 10) {
-                        tY += "0";
-                    }
-                    messageF = (tX + (x + "" + tY) + y);//location x added to location
                 }
-                //add round number
-                //Protect against loss of zeroes
-                a = rc.getRoundNum();
-                if (a < 1000) {
-                    messageF += "0";
-                    if (a < 100) {
-                        messageF += "0";
-                        if (a < 10) {
-                            messageF += "0";
-                        }
-                    }
-                }
-                messageF = messageF + (rc.getRoundNum() % 1000); // add last 4 digits of round number
-                int sum = checkSum(messageF);
-                String addZero = "";
-                if (sum < 10) {
-                    addZero = "0";
-                }
-                messageF = messageF + addZero + sum;
-                message[i] = stringToInt(messageF);
-                System.out.println(messageF);
-            }
-            if (rc.canSubmitTransaction(message, 1)) {
-                rc.submitTransaction(message, 1);
             }
         }
-    }
-
-    static void PutItOnTheChain(String a) throws GameActionException {
-        PutItOnTheChain(stringToInt(a));
-    }
-
-    static int stringToInt(String a){
-        if (a.length() > 7){ // if string is too long for Integer.parseInt() cut it in half and do it on a smaller piece of the string
-            String aa = a.substring(0,a.length()/2);
-            String ab = a.substring(a.length()/2);
-
-            //recombine the smaller strings
-            int aaa = (int) (stringToInt(aa) * Math.pow(10,ab.length()));
-            int aba = stringToInt(ab);
-            return (aaa + aba);
-        } else{
-            return Integer.parseInt(a);
-        }
-    }
-
-
-    //Checks the checksum of each message
-    static boolean isOurMessage(int[] x){
-        boolean[] messageValid = new boolean[x.length];
-        int count = 0;
-        for(int a: x) {
-            int sum = a%100;
-            if(checkSum(a/100) == sum){
-                messageValid[count] = true;
-            } else{
-                messageValid[count] = false;
-            }
-            count++;
-        }
-        //check if all messages are valid
-        for(boolean a: messageValid){
-            if (!a){
-                return false;
-            }
-        }
-        return true;
-    }
-
-    static boolean isOurMessage(int block,int message) throws GameActionException {
-        Transaction[] thisBlock = rc.getBlock(block);
-        int[] x = thisBlock[message - 1].getMessage();
-        return isOurMessage(x);
-    }
-
-    //gets initial message from encrypted message
-    static int getMessage(int a){
-        return a/1000000;
-    }
-
-
-    static MapLocation getMessageLocation(int a){
-        return new MapLocation (getMessage(a)/100,getMessage(a)%100);
-    }
-
-    //Use this to get a list of messages from a block
-    static int[][] getMessages(int block) throws GameActionException {
-        Transaction[] Block = rc.getBlock(block);
-        int[][] ourMessages = new int[Block.length][2];
-
-        int count = 0;
-        for(Transaction submission: Block){
-            if(isOurMessage(submission.getMessage())){
-                ourMessages[count][0] = getMessage(submission.getMessage()[0]);
-                ourMessages[count][0] = getMessage(submission.getMessage()[1]);
-                count++;
-            }
-        }
-        return ourMessages;
-    }
-
-
-
-    static int checkSum(int a){
-        int sum = 0;
-        int temp = a;
-        //Add up all the digits
-        while (temp > 9) {
-            sum += temp % 10;
-            temp = temp / 10;
-        }
-        sum += temp;
-        return sum;
-    }
-
-    static int checkSum(String a){
-        return checkSum(stringToInt(a));
     }
 }
