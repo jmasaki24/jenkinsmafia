@@ -4,10 +4,10 @@ import battlecode.common.*;
 import java.lang.Math;
 import java.util.ArrayList;
 
-// basically I'm writing this file from scratch since I'm getting frustrated and I think it's because I don't know
-// what's going on. rip me.
-
-// focused on pathfinding at the moment
+// BEHAVIOR:    1. makes a fcenter and drone asap.
+//              2. flies drone around whole map, uploading certain locations to chain
+//              3. tests pathfinding for specific locations
+//              4. yay?
 
 public strictfp class RobotPlayer {
     static RobotController rc;
