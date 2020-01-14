@@ -45,6 +45,7 @@ public strictfp class RobotPlayer {
     static int numDesignSchools = 0;
     static int numLandscapers = 0;
     static int lastCheckedBlock = 0;
+    static boolean shouldMakeBuilders = false;
 
     static MapLocation myLoc;
     static MapLocation hqLoc;
@@ -95,11 +96,16 @@ public strictfp class RobotPlayer {
     }
 
     static void runDesignSchool() throws GameActionException {
-        if (rc.getTeamSoup()>=(8*RobotType.LANDSCAPER.cost)){
+        if (rc.getTeamSoup()>=(4*RobotType.LANDSCAPER.cost)){
+            shouldMakeBuilders = true;
+        }
+        if (shouldMakeBuilders){
             for (Direction dir: directions){
                 tryBuild(RobotType.LANDSCAPER,dir);
             }
         }
+
+
     }
 
     static void runLandscaper() throws GameActionException {
