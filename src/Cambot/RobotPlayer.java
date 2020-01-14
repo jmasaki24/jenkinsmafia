@@ -566,6 +566,14 @@ public strictfp class RobotPlayer {
 
     //Cam's pretty lame blockchain stuff here until end of doc
 
+    static void queueBlockchain() throws GameActionException {
+        for (int i = lastCheckedBlock + 1; i < rc.getRoundNum(); i++) {
+            for (Transaction tx : rc.getBlock(i)) {
+
+            }
+        }
+    }
+
     static ArrayList<MapLocation> queueBlockchain(int id) throws GameActionException {
         ArrayList<MapLocation> answer = new ArrayList<MapLocation>();
         int block = lastCheckedBlock + 1;
@@ -587,39 +595,11 @@ public strictfp class RobotPlayer {
     }
 
     static void PutItOnTheChain(int a,MapLocation pos) throws GameActionException {
-        if(rc.getRoundNum() > 3) {
-            int[] message = new int[2];
-            String messageF = "";
-            for (int i = 0; i < message.length; i++) {
-                if (i == 0) {
-                    //000 when entered becomes 0, this corrects for that
-                    if (a < 1000) {
-                        messageF += "0";
-                        if (a < 100) {
-                            messageF += "0";
-                            if (a < 10) {
-                                messageF += "0";
-                            }
-                        }
-                    }
-                    messageF += Integer.toString(a); //a needs to be a 4 digit integer
-                } else {
-                    int x = pos.x;
-                    int y = pos.y;
-                    String tX = "";
-                    String tY = "";
-
-                    if (x < 10) {
-                        tX += "0";
-                    }
-                    if (y < 10) {
-                        tY += "0";
-                    }
-                    messageF = (tX + (x + "" + tY) + y);//location x added to location
-                }
-                //add round number
-                //Protect against loss of zeroes
-                a = rc.getRoundNum();
+        int[] message = new int[2];
+        String messageF = "";
+        for (int i = 0; i < message.length; i++) {
+            if (i == 0) {
+                //000 when entered becomes 0, this corrects for that
                 if (a < 1000) {
                     messageF += "0";
                     if (a < 100) {
@@ -629,21 +609,49 @@ public strictfp class RobotPlayer {
                         }
                     }
                 }
-                messageF = messageF + (rc.getRoundNum() % 1000); // add last 4 digits of round number
-                int sum = checkSum(messageF);
-                String addZero = "";
-                if (sum < 10) {
-                    addZero = "0";
+                messageF += Integer.toString(a); //a needs to be a 4 digit integer
+            } else {
+                int x = pos.x;
+                int y = pos.y;
+                String tX = "";
+                String tY = "";
+
+                if (x < 10) {
+                    tX += "0";
                 }
-                messageF = messageF + addZero + sum;
-                message[i] = stringToInt(messageF);
-                System.out.println(messageF);
+                if (y < 10) {
+                    tY += "0";
+                }
+                messageF = (tX + (x + "" + tY) + y);//location x added to location
             }
-            if (rc.canSubmitTransaction(message, 1)) {
-                rc.submitTransaction(message, 1);
+            //add round number
+            //Protect against loss of zeroes
+            a = rc.getRoundNum();
+            if (a < 1000) {
+                messageF += "0";
+                if (a < 100) {
+                    messageF += "0";
+                    if (a < 10) {
+                        messageF += "0";
+                    }
+                }
             }
+
+            messageF = messageF + (rc.getRoundNum() % 1000); // add last 4 digits of round number
+            int sum = checkSum(messageF);
+            String addZero = "";
+            if (sum < 10) {
+                addZero = "0";
+            }
+            messageF = messageF + addZero + sum;
+            message[i] = stringToInt(messageF);
+            System.out.println(messageF);
+        }
+        if (rc.canSubmitTransaction(message, 1)) {
+            rc.submitTransaction(message, 1);
         }
     }
+
 
     static void PutItOnTheChain(String a) throws GameActionException {
         PutItOnTheChain(stringToInt(a));
