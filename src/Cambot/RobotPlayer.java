@@ -95,7 +95,7 @@ public strictfp class RobotPlayer {
     }
 
     static void runDesignSchool() throws GameActionException {
-        if (rc.getTeamSoup()>=(7*RobotType.LANDSCAPER.cost)){
+        if (rc.getTeamSoup()>=(8*RobotType.LANDSCAPER.cost)){
             for (Direction dir: directions){
                 tryBuild(RobotType.LANDSCAPER,dir);
             }

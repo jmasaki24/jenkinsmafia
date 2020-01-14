@@ -58,7 +58,7 @@ public strictfp class RobotPlayer {
     static ArrayList<MapLocation> amazonLocations = new ArrayList<>();
 
     // used in blockchain transactions
-    static final int teamSecret = 1231231231;
+    static final int teamSecret = 55555;
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
