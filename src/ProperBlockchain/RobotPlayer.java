@@ -2,7 +2,11 @@ package ProperBlockchain;
 
 import battlecode.common.*;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 
 public strictfp class RobotPlayer {
     static RobotController rc;
@@ -60,8 +64,8 @@ public strictfp class RobotPlayer {
     static int hqToCheck = 0;
 
     //Map
-    static MapLocation myLoc;
-    static MapLocation hqLoc;
+    static MapLocation myLoc = new MapLocation(-3,-3);
+    static MapLocation hqLoc = new MapLocation(-3,-3);
     static MapLocation enemyHQLoc = new MapLocation(-3,-3);
     static ArrayList<MapLocation> soupLocations = new ArrayList<>();
     static ArrayList<MapLocation> refineryLocations = new ArrayList<>();
@@ -144,8 +148,9 @@ public strictfp class RobotPlayer {
         }
     }
 
+    //searches for hq if not
     static void findHQ() throws GameActionException {
-        if (hqLoc == null) {
+        if (isLocationReal(hqLoc)) {
             // search surroundings for HQ
             RobotInfo[] robots = rc.senseNearbyRobots();
             for (RobotInfo robot : robots) {
@@ -153,7 +158,7 @@ public strictfp class RobotPlayer {
                     hqLoc = robot.location;
                 }
             }
-            if(hqLoc == null) {
+            if(isLocationReal(hqLoc)) {
                 // if still null, search the blockchain
                 updateUnitLocations();
             }
@@ -599,17 +604,15 @@ public strictfp class RobotPlayer {
         ArrayList<MapLocation> answer = currArray;
         int block = lastCheckedBlock + 1;
         for (int i = block; i < rc.getRoundNum(); i++){
-            int[][] messages = getMessages(i);
-            //If no messages
-            if(messages.length == 0){
-                return null;
-            }
+            HashMap<Integer,ArrayList<MapLocation>> messages = getMessages(i);
             //if messages, add them to answer
-            for (int e = 0; e < messages.length; e++){
-                if (messages[0][e] == id){
-                    answer.add(getMessageLocation(messages[1][e]));
-                } else if (messages[0][e] == NOTHINGID){                        //if we find nothingID, we delete the previous entries to that location
-                    while(answer.contains(getMessageLocation(NOTHINGID))){
+            for (HashMap.Entry<Integer,ArrayList<MapLocation>> message: messages.entrySet()){ //For each id
+                if (message.getKey() == id){ //if the id is the one we want
+                    for(MapLocation loc:message.getValue()){ //add all of the locations to our answer
+                        answer.add(loc);
+                    }
+                } else if (message.getKey() == NOTHINGID){//if we find nothingID,
+                    while(answer.contains(getMessageLocation(NOTHINGID))){ //we delete all the previous entries to that location
                         answer.remove(getMessageLocation(NOTHINGID));
                     }
                 }
@@ -732,27 +735,29 @@ public strictfp class RobotPlayer {
         return a/1000000;
     }
 
-
+    //gets location from a message
     static MapLocation getMessageLocation(int a){
         return new MapLocation (getMessage(a)/100,getMessage(a)%100);
     }
 
-    //Use this to get a list of messages from a block
-    static int[][] getMessages(int block) throws GameActionException {
+    //gets our messages from a block
+    static HashMap<Integer, ArrayList<MapLocation>> getMessages(int block) throws GameActionException {
         Transaction[] Block = rc.getBlock(block);
-        int[][] ourMessages = new int[Block.length][2];
+        HashMap<Integer, ArrayList<MapLocation>> ourMessages = new HashMap<>();
 
-        int count = 0;
-        for(Transaction submission: Block){
-            if(isOurMessage(submission.getMessage())){
-                ourMessages[count][0] = getMessage(submission.getMessage()[0]);
-                ourMessages[count][0] = getMessage(submission.getMessage()[1]);
-                count++;
+        for(Transaction transaction: Block){
+            if(isOurMessage(transaction.getMessage())){
+                int id = getMessage(transaction.getMessage()[0]);
+                MapLocation loc = getMessageLocation(transaction.getMessage()[1]);
+                if(ourMessages.containsKey(id)){
+                    ourMessages.get(id).add(loc);
+                }else{
+                    ourMessages.put(id,new ArrayList<MapLocation> (Collections.singletonList(loc)));
+                }
             }
         }
         return ourMessages;
     }
-
 
     //Generates a checksum for a given number
     static int checkSum(int a){
