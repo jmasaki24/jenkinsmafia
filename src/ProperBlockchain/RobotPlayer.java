@@ -41,8 +41,8 @@ public strictfp class RobotPlayer {
     static int lastCheckedBlock = 0;
 
     //Location MESSAGE Identifiers
-    static final int ourHQID = 0;
-    static final int enemyHQID = 1;
+    static final int ourHQID = 1;
+    static final int enemyHQID = 2;
     static final int SCHOOLID = 1234;
     static final int SOUPID = 4395;
     static final int LANDSCAPPERID = 5739;
@@ -79,6 +79,7 @@ public strictfp class RobotPlayer {
         RobotPlayer.rc = rc;
 
         turnCount = 0;
+        updateUnitLocations();
 
         while (true) {
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
@@ -158,10 +159,6 @@ public strictfp class RobotPlayer {
                     hqLoc = robot.location;
                 }
             }
-            if(isLocationReal(hqLoc)) {
-                // if still null, search the blockchain
-                updateUnitLocations();
-            }
         }
     }
 
@@ -175,10 +172,6 @@ public strictfp class RobotPlayer {
                     System.out.println("Sending Enemy Location");
                     sendMessage(enemyHQID,enemyHQLoc);
                 }
-            }
-            if(enemyHQLoc.x < 0 || enemyHQLoc.y < 0) {
-                // if still null, search the blockchain
-                updateUnitLocations();
             }
         }
     }
@@ -233,7 +226,6 @@ public strictfp class RobotPlayer {
     }
 
     static void runMiner() throws GameActionException {
-        updateUnitLocations();
         checkIfSoupGone();
 
         boolean shouldMove = true;
@@ -243,7 +235,9 @@ public strictfp class RobotPlayer {
 
 
 
-        MapLocation[] potentialHQ = new MapLocation[] {new MapLocation((rc.getMapWidth() - hqLoc.x) - 1, (hqLoc.y) - 1), new MapLocation((rc.getMapWidth() - hqLoc.x) - 1, (rc.getMapHeight() - hqLoc.y) - 1)};
+        MapLocation[] potentialHQ = new MapLocation[] {new MapLocation((rc.getMapWidth() - hqLoc.x) - 1, (hqLoc.y)),
+                                                       new MapLocation((rc.getMapWidth() - hqLoc.x) - 1, (rc.getMapHeight() - hqLoc.y) - 1),
+                                                       new MapLocation((hqLoc.x),rc.getMapHeight() - hqLoc.y - 1)};
         System.out.println(potentialHQ[0]);
         System.out.println(potentialHQ[1]);
 
@@ -271,7 +265,7 @@ public strictfp class RobotPlayer {
                         rc.setIndicatorLine(rc.getLocation(),potentialHQ[hqToCheck],0,230,0);
                 } else{
                     System.out.println("Nothing Here at potential HQ:" + potentialHQ);
-                    hqToCheck = 1;
+                    hqToCheck++;
                 }
             }
         }
@@ -521,16 +515,21 @@ public strictfp class RobotPlayer {
     }
 
     public static void getLocationsFromBlockchain(int id) throws GameActionException {
-        ArrayList<MapLocation> listToUpdate = new ArrayList<>();
         //if there is a variable, get the variable associated with the id
         if (id == ourHQID) {
-            if (isLocationReal(hqLoc))
-                hqLoc = getIDLocFromBlockChain(id,new ArrayList<MapLocation>()).get(0); //Gets the first submission from the returned
+            if (!isLocationReal(hqLoc)) {
+                ArrayList<MapLocation> hqs = getIDLocFromBlockChain(id, new ArrayList<MapLocation>());
+                if (hqs.size() > 0)                                                          //If we get a response we
+                    hqLoc = getIDLocFromBlockChain(id, new ArrayList<MapLocation>()).get(0); //Gets the first submission from the returned
+            }
         } else if (id == enemyHQID) {
-            if (isLocationReal(enemyHQLoc))
-                enemyHQLoc = getIDLocFromBlockChain(id,new ArrayList<MapLocation>()).get(0);
+            if (!isLocationReal(enemyHQLoc)) {
+                ArrayList<MapLocation> hqs = getIDLocFromBlockChain(id, new ArrayList<MapLocation>());
+                if(hqs.size() > 0)
+                    enemyHQLoc = getIDLocFromBlockChain(id, new ArrayList<MapLocation>()).get(0);
+            }
         } else {
-            //If there is a list, get the list associated with the id
+            //If there is a list, get the list associated with the id + update it
             switch (id) {
                 case SCHOOLID:
                     designSchoolLocations = getIDLocFromBlockChain(id,designSchoolLocations);
@@ -591,9 +590,11 @@ public strictfp class RobotPlayer {
     public static boolean isLocationReal(MapLocation input){
         if (input.x > 0 && input.y > 0){
             if (input.x < rc.getMapWidth() && input.y < rc.getMapHeight()){
+                System.out.println(input + " is real: " + true);
                 return true;
             }
         }
+        System.out.println(input + " is real: " + false);
         return false;
     }
 
