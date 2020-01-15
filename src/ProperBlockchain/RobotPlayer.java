@@ -4,11 +4,6 @@ import battlecode.common.*;
 
 import java.util.ArrayList;
 
-// basically I'm writing this file from scratch since I'm getting frustrated and I think it's because I don't know
-// what's going on. rip me.
-
-// focused on pathfinding at the moment
-
 public strictfp class RobotPlayer {
     static RobotController rc;
 
@@ -49,6 +44,7 @@ public strictfp class RobotPlayer {
     static final int LANDSCAPPERID = 5739;
     static final int AMAZONID = 5947;
     static final int VAPORATORID = 4938;
+    static final int REFINERYID = 8593;
     static final int NOTHINGID = 404; //used to remove locations
 
     //All Location Identifiers in an array used for updating all locations
@@ -66,15 +62,13 @@ public strictfp class RobotPlayer {
     //Map
     static MapLocation myLoc;
     static MapLocation hqLoc;
-    static MapLocation EHqLoc = new MapLocation(-3,-3);
+    static MapLocation enemyHQLoc = new MapLocation(-3,-3);
     static ArrayList<MapLocation> soupLocations = new ArrayList<>();
     static ArrayList<MapLocation> refineryLocations = new ArrayList<>();
     static ArrayList<MapLocation> designSchoolLocations = new ArrayList<>();
     static ArrayList<MapLocation> vaporatorLocations = new ArrayList<>();
     static ArrayList<MapLocation> amazonLocations = new ArrayList<>();
 
-    // used in not good blockchain transactions
-    static final int teamSecret = 495839;
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
@@ -161,32 +155,32 @@ public strictfp class RobotPlayer {
             }
             if(hqLoc == null) {
                 // if still null, search the blockchain
-                getHqLocFromBlockchain();
+                updateUnitLocations();
             }
         }
     }
 
     static void findEHQ() throws GameActionException {
-        if (EHqLoc.x < 0 || EHqLoc.y < 0) {
+        if (enemyHQLoc.x < 0 || enemyHQLoc.y < 0) {
             // search surroundings for HQ
             RobotInfo[] robots = rc.senseNearbyRobots();
             for (RobotInfo robot : robots) {
                 if (robot.type == RobotType.HQ && robot.team == rc.getTeam().opponent()) {
-                    EHqLoc = robot.location;
+                    enemyHQLoc = robot.location;
                     System.out.println("Sending Enemy Location");
-                    sendEHqLoc(EHqLoc);
+                    sendMessage(enemyHQID,enemyHQLoc);
                 }
             }
-            if(EHqLoc.x < 0 || EHqLoc.y < 0) {
+            if(enemyHQLoc.x < 0 || enemyHQLoc.y < 0) {
                 // if still null, search the blockchain
-                getEHqLocFromBlockchain();
+                updateUnitLocations();
             }
         }
     }
 
     static void runHQ() throws GameActionException {
         if(turnCount == 1) {
-            sendHqLoc(rc.getLocation());
+            sendMessage(ourHQID,rc.getLocation());
         }
         if(numMiners < 15) {
             for (Direction dir : directions)
@@ -233,11 +227,8 @@ public strictfp class RobotPlayer {
         }
     }
 
-
-
     static void runMiner() throws GameActionException {
         updateUnitLocations();
-        updateSoupLocations();
         checkIfSoupGone();
 
         boolean shouldMove = true;
@@ -254,11 +245,11 @@ public strictfp class RobotPlayer {
 
         if(rc.getRoundNum() > 130){
             if (rc.getID()%2 == 0){
-                if(EHqLoc.x > 0 || EHqLoc.y > 0){
+                if(enemyHQLoc.x > 0 || enemyHQLoc.y > 0){
                     System.out.println("Found ENEMY HQ");
-                    if (myLoc.distanceSquaredTo(EHqLoc) > 5){
-                        System.out.println("Going to ENEMY HQ:" + EHqLoc);
-                        goTo(EHqLoc);
+                    if (myLoc.distanceSquaredTo(enemyHQLoc) > 5){
+                        System.out.println("Going to ENEMY HQ:" + enemyHQLoc);
+                        goTo(enemyHQLoc);
                     } else{
                         System.out.println("Standing my gound at ENEMY HQ");
                         for (Direction dir: directions){
@@ -317,11 +308,11 @@ public strictfp class RobotPlayer {
                     MapLocation soupLoc = rc.getLocation().add(dir);
                     if (hqLoc.distanceSquaredTo(soupLoc) > 25) {
                         if (tryBuild(RobotType.REFINERY, randomDirection())) {
-                            broadcastUnitCreation(RobotType.REFINERY, rc.adjacentLocation(dir.opposite()));
+                            sendMessage(REFINERYID, rc.adjacentLocation(dir.opposite()));
                         }
                     }
                     if (!soupLocations.contains(soupLoc)) {
-                        broadcastSoupLocation(soupLoc);
+                        sendMessage(SOUPID,soupLoc);
                     }
                 }
 
@@ -488,7 +479,6 @@ public strictfp class RobotPlayer {
     static boolean tryBuild(RobotType type, Direction dir) throws GameActionException {
         if (rc.isReady() && rc.canBuildRobot(type, dir)) {
             rc.buildRobot(type, dir);
-            broadcastUnitCreation(type, rc.getLocation().add(dir));
             return true;
         } else return false;
     }
@@ -521,85 +511,41 @@ public strictfp class RobotPlayer {
         } else return false;
     }
 
-
-
-    public static void broadcastSoupLocation(MapLocation loc ) throws GameActionException {
-        int[] message = new int[7];
-        message[0] = teamSecret;
-        message[1] = 2;
-        message[2] = loc.x; // x coord of HQ
-        message[3] = loc.y; // y coord of HQ
-        if (rc.canSubmitTransaction(message, 3)) {
-            rc.submitTransaction(message, 3);
-            System.out.println("new soup!" + loc);
-        }
-    }
-
-    public static void updateSoupLocations() throws GameActionException {
-        for(Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
-            int[] mess = tx.getMessage();
-            if(mess[0] == teamSecret && mess[1] == 2){
-                System.out.println("heard about a tasty new soup location");
-                soupLocations.add(new MapLocation(mess[2], mess[3]));
-            }
-        }
-    }
-
     public static void sendLoc(int id,MapLocation loc) throws GameActionException {
         sendMessage(id,loc);
     }
 
-    public static void getLocFromBlockchain(int id,MapLocation loc) throws GameActionException {
+    public static void getLocationsFromBlockchain(int id) throws GameActionException {
+        ArrayList<MapLocation> listToUpdate = new ArrayList<>();
+        //if there is a variable, get the variable associated with the id
         if (id == ourHQID) {
-
+            if (isLocationReal(hqLoc))
+                hqLoc = getIDLocFromBlockChain(id,new ArrayList<MapLocation>()).get(0); //Gets the first submission from the returned
         } else if (id == enemyHQID) {
-
+            if (isLocationReal(enemyHQLoc))
+                enemyHQLoc = getIDLocFromBlockChain(id,new ArrayList<MapLocation>()).get(0);
         } else {
-            MapLocation[] listToUpdate;
+            //If there is a list, get the list associated with the id
             switch (id) {
                 case SCHOOLID:
-                    listToUpdate = 3;
+                    designSchoolLocations = getIDLocFromBlockChain(id,designSchoolLocations);
                     break;
                 case AMAZONID:
-                    listToUpdate = 4;
+                    amazonLocations = getIDLocFromBlockChain(id,amazonLocations);
                     break;
-                case LANDSCAPPERID:
-                    listToUpdate = 5;
+                case VAPORATORID:
+                    vaporatorLocations = getIDLocFromBlockChain(id,vaporatorLocations);
                     break;
-                case NOTHINGID:
-                    listToUpdate = 6;
-                    break;
-                case MINER:
-                    listToUpdate = 7;
-                    break;
-                case NET_GUN:
-                    listToUpdate = 8;
-                    break;
-                case REFINERY:
-                    listToUpdate = 9;
-                    break;
-                case VAPORATOR:
-                    listToUpdate = 10;
-                    break;
-                default:
-                    listToUpdate = 0;
+                case REFINERYID:
+                    refineryLocations = getIDLocFromBlockChain(id,refineryLocations);
                     break;
             }
+
         }
     }
 
-    public static void getEHqLocFromBlockchain() throws GameActionException {
-        for (int i = 1; i < rc.getRoundNum(); i++){
-            for(Transaction tx : rc.getBlock(i)) {
-                int[] mess = tx.getMessage();
-                if(mess[0] == teamSecret && mess[1] == EHQID){
-                    EHqLoc = new MapLocation(mess[2], mess[3]);
-                }
-            }
-        }
-    }
-
-    public static void broadcastUnitCreation(RobotType type, MapLocation loc) throws GameActionException {
+    //puts new unit counts on the network
+    /*public static void broadcastUnitCreation(RobotType type, MapLocation loc) throws GameActionException {
         int typeNumber;
         switch (type) {
             case COW:                     typeNumber = 1;     break;
@@ -625,36 +571,44 @@ public strictfp class RobotPlayer {
             rc.submitTransaction(message, 3);
             System.out.println("new refinery!" + loc);
         }
-    }
+    }*/
 
+    //updates all locations to include the new blockchain locations
     public static void updateUnitLocations() throws GameActionException {
-        for(Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
-            int[] mess = tx.getMessage();
-            if(mess[0] == teamSecret && mess[1] == 4){
-                System.out.println("heard about a new unit");
-                switch (mess[4]) {
-                    case 3:     designSchoolLocations.add(new MapLocation(mess[2], mess[3]));   break;
-                    case 4:     amazonLocations.add(new MapLocation(mess[2], mess[3]));         break;
-                    case 9:     refineryLocations.add(new MapLocation(mess[2], mess[3]));       break;
-                    case 10:    vaporatorLocations.add(new MapLocation(mess[2], mess[3]));      break;
-                    default: break;
-                }
-
-            }
+        for(int id: MessageIDs){
+            getLocationsFromBlockchain(id);
         }
     }
 
-    //Cam's pretty lame blockchain stuff here until end of doc
+//Cam's cool MapLocation tools
 
-    static ArrayList<MapLocation> queueBlockchain(int id,ArrayList<MapLocation> currArray) throws GameActionException {
+    //Checks if the location
+    public static boolean isLocationReal(MapLocation input){
+        if (input.x > 0 && input.y > 0){
+            if (input.x < rc.getMapWidth() && input.y < rc.getMapHeight()){
+                return true;
+            }
+        }
+        return false;
+    }
+
+//Cam's pretty lame blockchain stuff here until end of doc
+
+    //Updates the locations over the blockchain with myRobotArray = getIDLoc...(myRobotID, myRobotArray)
+    static ArrayList<MapLocation> getIDLocFromBlockChain(int id,ArrayList<MapLocation> currArray) throws GameActionException {
         ArrayList<MapLocation> answer = currArray;
         int block = lastCheckedBlock + 1;
         for (int i = block; i < rc.getRoundNum(); i++){
             int[][] messages = getMessages(i);
+            //If no messages
+            if(messages.length == 0){
+                return null;
+            }
+            //if messages, add them to answer
             for (int e = 0; e < messages.length; e++){
                 if (messages[0][e] == id){
                     answer.add(getMessageLocation(messages[1][e]));
-                } else if (messages[0][e] == NOTHINGID){
+                } else if (messages[0][e] == NOTHINGID){                        //if we find nothingID, we delete the previous entries to that location
                     while(answer.contains(getMessageLocation(NOTHINGID))){
                         answer.remove(getMessageLocation(NOTHINGID));
                     }
@@ -666,14 +620,12 @@ public strictfp class RobotPlayer {
         return answer;
     }
 
+    //Auto adds your location
     static void sendMessage(int a) throws GameActionException {
         sendMessage(a,rc.getLocation());
     }
 
-    static void sendMessage(String a) throws GameActionException {
-        sendMessage(stringToInt(a));
-    }
-
+    //Puts Id on the blockchain with a location
     static void sendMessage(int a,MapLocation pos) throws GameActionException {
         int[] message = new int[2];
         String messageF = "";
@@ -732,6 +684,7 @@ public strictfp class RobotPlayer {
         }
     }
 
+    //Handles strings that are too big for normal parsing (~7-8 digits)
     static int stringToInt(String a){
         if (a.length() > 7){ // if string is too long for Integer.parseInt() cut it in half and do it on a smaller piece of the string
             String aa = a.substring(0,a.length()/2);
@@ -745,7 +698,6 @@ public strictfp class RobotPlayer {
             return Integer.parseInt(a);
         }
     }
-
 
     //Checks the checksum of each message
     static boolean isOurMessage(int[] x){
@@ -802,7 +754,7 @@ public strictfp class RobotPlayer {
     }
 
 
-
+    //Generates a checksum for a given number
     static int checkSum(int a){
         int sum = 0;
         int temp = a;
@@ -815,6 +767,7 @@ public strictfp class RobotPlayer {
         return sum;
     }
 
+    //if you give it a string, it still gives you the checksum
     static int checkSum(String a){
         return checkSum(stringToInt(a));
     }
