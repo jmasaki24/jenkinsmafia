@@ -4,8 +4,7 @@ import battlecode.common.*;
 
 import java.util.ArrayList;
 
-// basically I'm writing this file from scratch since I'm getting frustrated and I think it's because I don't know
-// what's going on. rip me.
+// Somehow this file got broken and there are multiple sections that don't work. I have commented them out with "// //" so anyone who wants to fix them can easily find them
 
 // focused on pathfinding at the moment
 
@@ -161,7 +160,11 @@ public strictfp class RobotPlayer {
             }
             if(hqLoc == null) {
                 // if still null, search the blockchain
-                getHqLocFromBlockchain();
+
+                // ISSUE BELOW
+                // getHqfromblockchain doesnt exist.
+
+                // // getHqLocFromBlockchain();
             }
         }
     }
@@ -174,7 +177,7 @@ public strictfp class RobotPlayer {
                 if (robot.type == RobotType.HQ && robot.team == rc.getTeam().opponent()) {
                     EHqLoc = robot.location;
                     System.out.println("Sending Enemy Location");
-                    sendEHqLoc(EHqLoc);
+                    // // sendEHqLoc(EHqLoc);
                 }
             }
             if(EHqLoc.x < 0 || EHqLoc.y < 0) {
@@ -186,7 +189,7 @@ public strictfp class RobotPlayer {
 
     static void runHQ() throws GameActionException {
         if(turnCount == 1) {
-            sendHqLoc(rc.getLocation());
+            // // sendHqLoc(rc.getLocation());
         }
         if(numMiners < 15) {
             for (Direction dir : directions)
@@ -548,8 +551,8 @@ public strictfp class RobotPlayer {
     public static void sendLoc(int id,MapLocation loc) throws GameActionException {
         sendMessage(id,loc);
     }
-
-    public static void getLocFromBlockchain(int id,MapLocation loc) throws GameActionException {
+// // // // // // // This whole thing below doesnt work
+/*    public static void getLocFromBlockchain(int id,MapLocation loc) throws GameActionException {
         if (id == ourHQID) {
 
         } else if (id == enemyHQID) {
@@ -586,15 +589,15 @@ public strictfp class RobotPlayer {
                     break;
             }
         }
-    }
+    }*/
 
     public static void getEHqLocFromBlockchain() throws GameActionException {
         for (int i = 1; i < rc.getRoundNum(); i++){
             for(Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();
-                if(mess[0] == teamSecret && mess[1] == EHQID){
+                // // if(mess[0] == teamSecret && mess[1] == EHQID){
                     EHqLoc = new MapLocation(mess[2], mess[3]);
-                }
+                // // }
             }
         }
     }
