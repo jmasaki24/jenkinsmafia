@@ -1,6 +1,7 @@
-package BestBotv2;
+package BestBotv3;
+
 import battlecode.common.*;
-import java.lang.Math;
+
 import java.util.ArrayList;
 
 //Long term goals
@@ -34,6 +35,7 @@ public strictfp class RobotPlayer {
 
     //Blockchain Stuff
     static final int HQID = 0;
+    static final int EHQID = 232455;
     static final int DESIGNSCHOOL = 123;
     static int turnCount; // number of turns since creation
     static int numMiners = 0;
@@ -44,9 +46,13 @@ public strictfp class RobotPlayer {
     static final int NOTHINGID = 404;
     static final MapLocation closestRefineryLoc = null;
 
+    //Drone Vars
+    static int hqToCheck = 0;
+
     //Map Locations
     static MapLocation myLoc;
     static MapLocation hqLoc;
+    static MapLocation EHqLoc = new MapLocation(-3,-3);
     static ArrayList<MapLocation> soupLocations = new ArrayList<>();
     static ArrayList<MapLocation> refineryLocations = new ArrayList<>();
     static ArrayList<MapLocation> designSchoolLocations = new ArrayList<>();
@@ -54,11 +60,11 @@ public strictfp class RobotPlayer {
     static ArrayList<MapLocation> amazonLocations = new ArrayList<>();
 
     // used in blockchain transactions
-    static final int teamSecret = 232232332;
+    static final int teamSecret = 343433434;
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
-        BestBotv2.RobotPlayer.rc = rc;
+        RobotPlayer.rc = rc;
 
         turnCount = 0;
 
@@ -77,13 +83,13 @@ public strictfp class RobotPlayer {
                     //case REFINERY:           runRefinery();          break;
                     //case VAPORATOR:          runVaporator();         break;
                     case DESIGN_SCHOOL:      runDesignSchool();      break;
-                    //case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
+                    case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
                     case LANDSCAPER:         runLandscaper();        break;
                     //Todo: Get drones to swarm enemy base
                     //Todo: Get drones to dive in all at once
                     //Todo: Get drones to drop enemy landscapers into water
                     //Todo: Bonus: Get our landscapers on their wall and bury their HQ
-                    //case DELIVERY_DRONE:     runDeliveryDrone();     break;
+                    case DELIVERY_DRONE:     runDeliveryDrone();     break;
                     //case NET_GUN:            runNetGun();            break;
                 }
 
@@ -107,6 +113,17 @@ public strictfp class RobotPlayer {
         if (shouldMakeBuilders){
             for (Direction dir: directions){
                 tryBuild(RobotType.LANDSCAPER,dir);
+            }
+        }
+    }
+
+    static void runFulfillmentCenter() throws GameActionException {
+        if (rc.getTeamSoup()>=(6*RobotType.DELIVERY_DRONE.cost)){
+            shouldMakeBuilders = true;
+        }
+        if (shouldMakeBuilders){
+            for (Direction dir: directions){
+                tryBuild(RobotType.DELIVERY_DRONE,dir);
             }
         }
     }
@@ -201,6 +218,24 @@ public strictfp class RobotPlayer {
         }
     }
 
+    static void findEHQ() throws GameActionException {
+        if (EHqLoc.x < 0 || EHqLoc.y < 0) {
+            // search surroundings for HQ
+            RobotInfo[] robots = rc.senseNearbyRobots();
+            for (RobotInfo robot : robots) {
+                if (robot.type == RobotType.HQ && robot.team == rc.getTeam().opponent()) {
+                    EHqLoc = robot.location;
+                    System.out.println("Sending Enemy Location");
+                    sendEHqLoc(EHqLoc);
+                }
+            }
+            if(EHqLoc.x < 0 || EHqLoc.y < 0) {
+                // if still null, search the blockchain
+                getEHqLocFromBlockchain();
+            }
+        }
+    }
+
     static void runHQ() throws GameActionException {
         if(turnCount == 1) {
             sendHqLoc(rc.getLocation());
@@ -248,6 +283,10 @@ public strictfp class RobotPlayer {
                 System.out.println("Trybuild school");
                 tryBuild(RobotType.DESIGN_SCHOOL,Direction.NORTH);
             }
+        }
+
+        if (rc.getTeamSoup() > 8 * RobotType.DELIVERY_DRONE.cost){
+            rc.buildRobot(RobotType.FULFILLMENT_CENTER,randomDirection());
         }
 
         // Better to deposit soup while you can
@@ -334,6 +373,49 @@ public strictfp class RobotPlayer {
                 }
             }
         }
+    }
+
+    //
+    static void runDeliveryDrone() throws GameActionException {
+        boolean shouldMove = true;
+        myLoc = rc.getLocation();
+
+        findEHQ();
+
+        MapLocation[] potentialHQ = new MapLocation[] {new MapLocation((rc.getMapWidth() - hqLoc.x) - 1, (hqLoc.y) - 1),
+                                                       new MapLocation((rc.getMapWidth() - hqLoc.x) - 1, (rc.getMapHeight() - hqLoc.y) - 1),
+                                                       new MapLocation((hqLoc.x) - 1                   , (rc.getMapHeight() - hqLoc.y) - 1)};
+        for (MapLocation loc: potentialHQ){
+            rc.setIndicatorDot(loc,0,200,200);
+        }
+
+
+        if (rc.getID()%2 == 0){
+            if(EHqLoc.x > 0 || EHqLoc.y > 0){
+                System.out.println("Found ENEMY HQ");
+                if (myLoc.distanceSquaredTo(EHqLoc) > 5){
+                    System.out.println("Going to ENEMY HQ:" + EHqLoc);
+                    tryMove(myLoc.directionTo(EHqLoc));
+                } else{
+                    System.out.println("Standing my gound at ENEMY HQ");
+                    for (Direction dir: directions){
+                        tryBuild(RobotType.NET_GUN,dir);
+                    }
+                    shouldMove = false;
+                }
+            }
+
+            if(myLoc.distanceSquaredTo(potentialHQ[hqToCheck]) > 5){
+                System.out.println("Going to a potential HQ:" + potentialHQ);
+                if(shouldMove)
+                    tryMove(myLoc.directionTo(potentialHQ[hqToCheck]));
+                rc.setIndicatorLine(rc.getLocation(),potentialHQ[hqToCheck],0,230,0);
+            } else{
+                System.out.println("Nothing Here at potential HQ:" + potentialHQ);
+                hqToCheck += 1;
+            }
+        }
+
     }
 
     // tries to move in the general direction of dir
@@ -499,6 +581,16 @@ public strictfp class RobotPlayer {
             rc.submitTransaction(message, 1);
     }
 
+    public static void sendEHqLoc(MapLocation loc) throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = EHQID;
+        message[2] = loc.x; // x coord of HQ
+        message[3] = loc.y; // y coord of HQ
+        if (rc.canSubmitTransaction(message, 3))
+            rc.submitTransaction(message, 3);
+    }
+
     public static void getHqLocFromBlockchain() throws GameActionException {
         for (int i = 1; i < rc.getRoundNum(); i++){
             for(Transaction tx : rc.getBlock(i)) {
@@ -506,6 +598,17 @@ public strictfp class RobotPlayer {
                 if(mess[0] == teamSecret && mess[1] == HQID){
                     System.out.println("found the HQ!");
                     hqLoc = new MapLocation(mess[2], mess[3]);
+                }
+            }
+        }
+    }
+
+    public static void getEHqLocFromBlockchain() throws GameActionException {
+        for (int i = 1; i < rc.getRoundNum(); i++){
+            for(Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if(mess[0] == teamSecret && mess[1] == EHQID){
+                    EHqLoc = new MapLocation(mess[2], mess[3]);
                 }
             }
         }
