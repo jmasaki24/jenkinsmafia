@@ -100,7 +100,7 @@ public strictfp class RobotPlayer {
     //Todo: set a hard limit of builders to make
     //Creates 5 when we have the resources to
     static void runDesignSchool() throws GameActionException {
-        if (rc.getTeamSoup()>=(5*RobotType.LANDSCAPER.cost)){
+        if (rc.getTeamSoup()>=(3*RobotType.LANDSCAPER.cost)){
             shouldMakeBuilders = true;
         }
         if (shouldMakeBuilders){
@@ -144,8 +144,10 @@ public strictfp class RobotPlayer {
 
         // otherwise try to get to the hq
         if(hqLoc != null){
-            goTo(hqLoc);
+            if (hqLoc.distanceSquaredTo(myLoc) > 2)
+                goTo(hqLoc);
         } else {
+            //If we don't see the hq
             tryMove(randomDirection());
         }
     }
@@ -203,7 +205,7 @@ public strictfp class RobotPlayer {
         if(turnCount == 1) {
             sendHqLoc(rc.getLocation());
         }
-        if(numMiners < 15) {
+        if(numMiners < 5) {
             for (Direction dir : directions)
                 if(tryBuild(RobotType.MINER, dir)){
                     numMiners++;
