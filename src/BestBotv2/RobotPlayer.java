@@ -100,7 +100,7 @@ public strictfp class RobotPlayer {
     //Todo: set a hard limit of builders to make
     //Creates 5 when we have the resources to
     static void runDesignSchool() throws GameActionException {
-        if (rc.getTeamSoup()>=(3*RobotType.LANDSCAPER.cost)){
+        if (rc.getTeamSoup()>=(5*RobotType.LANDSCAPER.cost)){
             shouldMakeBuilders = true;
         }
         if (shouldMakeBuilders){
@@ -144,10 +144,13 @@ public strictfp class RobotPlayer {
 
         // otherwise try to get to the hq
         if(hqLoc != null){
-            if (hqLoc.distanceSquaredTo(myLoc) > 2)
-                goTo(hqLoc);
+            System.out.println("Can See hq");
+            Direction rand = randomDirection();
+            if (rc.getLocation().add(rand).distanceSquaredTo(hqLoc) < 3){ //Only move in directions where you end up on the wall
+                tryMove(rand);
+            }
         } else {
-            //If we don't see the hq
+            System.out.println("Can't see hq");
             tryMove(randomDirection());
         }
     }
@@ -199,13 +202,11 @@ public strictfp class RobotPlayer {
         }
     }
 
-    //Todo: Make it possible to build design school further from hq (Need to edit HQ and Miner)
-
     static void runHQ() throws GameActionException {
         if(turnCount == 1) {
             sendHqLoc(rc.getLocation());
         }
-        if(numMiners < 7) {
+        if(numMiners < 10) {
             for (Direction dir : directions)
                 if(tryBuild(RobotType.MINER, dir)){
                     numMiners++;
