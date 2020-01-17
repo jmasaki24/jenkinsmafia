@@ -3,10 +3,9 @@ import battlecode.common.*;
 import java.lang.Math;
 import java.util.ArrayList;
 
-// basically I'm writing this file from scratch since I'm getting frustrated and I think it's because I don't know
-// what's going on. rip me.
-
-// focused on pathfinding at the moment
+//Long term goals
+//TODO: The goal of this bot is to be as simple and clean as possible to enable future versions to be even better
+//Todo: Comment any uncommented piece of code to ensure we know what each section generally does
 
 public strictfp class RobotPlayer {
     static RobotController rc;
@@ -33,11 +32,7 @@ public strictfp class RobotPlayer {
             Direction.NORTHWEST
     };
 
-    // from lectureplayer, could be deleted
-    static RobotType[] spawnedByMiner = {RobotType.REFINERY, RobotType.VAPORATOR, RobotType.DESIGN_SCHOOL,
-            RobotType.FULFILLMENT_CENTER, RobotType.NET_GUN};
-
-
+    //Blockchain Stuff
     static final int HQID = 0;
     static final int DESIGNSCHOOL = 123;
     static int turnCount; // number of turns since creation
@@ -49,6 +44,7 @@ public strictfp class RobotPlayer {
     static final int NOTHINGID = 404;
     static final MapLocation closestRefineryLoc = null;
 
+    //Map Locations
     static MapLocation myLoc;
     static MapLocation hqLoc;
     static ArrayList<MapLocation> soupLocations = new ArrayList<>();
@@ -82,6 +78,10 @@ public strictfp class RobotPlayer {
                     case DESIGN_SCHOOL:      runDesignSchool();      break;
                     //case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
                     case LANDSCAPER:         runLandscaper();        break;
+                    //Todo: Get drones to swarm enemy base
+                    //Todo: Get drones to dive in all at once
+                    //Todo: Get drones to drop enemy landscapers into water
+                    //Todo: Bonus: Get our landscapers on their wall and bury their HQ
                     //case DELIVERY_DRONE:     runDeliveryDrone();     break;
                     //case NET_GUN:            runNetGun();            break;
                 }
@@ -97,8 +97,10 @@ public strictfp class RobotPlayer {
 
     }
 
+    //Todo: set a hard limit of builders to make
+    //Creates 5 when we have the resources to
     static void runDesignSchool() throws GameActionException {
-        if (rc.getTeamSoup()>=(4*RobotType.LANDSCAPER.cost)){
+        if (rc.getTeamSoup()>=(5*RobotType.LANDSCAPER.cost)){
             shouldMakeBuilders = true;
         }
         if (shouldMakeBuilders){
@@ -106,11 +108,10 @@ public strictfp class RobotPlayer {
                 tryBuild(RobotType.LANDSCAPER,dir);
             }
         }
-
-
     }
 
-
+    //Todo: Get more Landscapers on the wall (2-4 currently make it)
+    //Currently builds up our wall evenly
     static void runLandscaper() throws GameActionException {
         if(rc.getDirtCarrying() == 0){
             tryDig();
@@ -148,27 +149,6 @@ public strictfp class RobotPlayer {
             tryMove(randomDirection());
         }
     }
-
-//    static void definitelyMove() throws GameActionException {
-//        definitelyMove(0);
-//    }
-//
-//    static void definitelyMove(int count) throws GameActionException {
-//        Direction dir = randomDirection();
-//        int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
-//        System.out.println(distance);
-//        if(distance <= 8){
-//            if ((dir != Direction.EAST && dir != Direction.NORTHEAST) && dir != Direction.SOUTHEAST){
-//                if(!tryMove(dir)){
-//                    if(count < 10){
-//                        definitelyMove(count + 1);
-//                    }
-//                }
-//            }
-//        }
-//        if(count < 10)
-//            definitelyMove(count + 1);
-//    }
 
     static void definitelyDigDirt() throws GameActionException {
         definitelyDigDirt(0);
@@ -217,6 +197,8 @@ public strictfp class RobotPlayer {
         }
     }
 
+    //Todo: Make it possible to build design school further from hq (Need to edit HQ and Miner)
+
     static void runHQ() throws GameActionException {
         if(turnCount == 1) {
             sendHqLoc(rc.getLocation());
@@ -248,6 +230,7 @@ public strictfp class RobotPlayer {
         }
     }
 
+    //Todo: get miners to build one-two drone-centers to begin the swarm
     static void runMiner() throws GameActionException {
         updateUnitLocations();
         updateSoupLocations();
@@ -368,7 +351,6 @@ public strictfp class RobotPlayer {
     }
 
     // tries to move in the general direction of dir
-    // THIS IS WHERE I WORK ON PATHFINDING - jm
     static boolean goTo(Direction dir) throws GameActionException {
 
         // while, I cannot move, rotate the direction to the right.
@@ -394,6 +376,7 @@ public strictfp class RobotPlayer {
         return goTo(rc.getLocation().directionTo(destination));
     }
 
+    //Removes soup location from memory if there is no soup
     static void checkIfSoupGone() throws GameActionException {
         if (soupLocations.size() > 0) {
             MapLocation targetSoupLoc = soupLocations.get(0);
@@ -495,7 +478,8 @@ public strictfp class RobotPlayer {
         } else return false;
     }
 
-
+    //Jamie's Blockchain stuff
+    //TODO: add round number to the team secret to prevent enemy spamming
 
     public static void broadcastSoupLocation(MapLocation loc ) throws GameActionException {
         int[] message = new int[7];
