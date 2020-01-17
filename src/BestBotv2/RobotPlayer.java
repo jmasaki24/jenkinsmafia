@@ -120,28 +120,30 @@ public strictfp class RobotPlayer {
 
         //Wait 15 turns to build
         if (turnCount > 50) {
-            MapLocation bestPlaceToBuildWall = null;
-            // find best place to build
-            if (hqLoc != null) {
-                int lowestElevation = 9999999;
-                for (Direction dir : directions) {
-                    MapLocation tileToCheck = hqLoc.add(dir);
-                    if (rc.getLocation().distanceSquaredTo(tileToCheck) < 4
-                            && rc.canDepositDirt(rc.getLocation().directionTo(tileToCheck))) {
-                        if (rc.senseElevation(tileToCheck) < lowestElevation) {
-                            lowestElevation = rc.senseElevation(tileToCheck);
-                            bestPlaceToBuildWall = tileToCheck;
+            for (int i = 0; i < 8; i++){
+                MapLocation bestPlaceToBuildWall = null;
+                // find best place to build
+                if (hqLoc != null) {
+                    int lowestElevation = 9999999;
+                    for (Direction dir : directions) {
+                        MapLocation tileToCheck = hqLoc.add(dir);
+                        if (rc.getLocation().distanceSquaredTo(tileToCheck) < 4
+                                && rc.canDepositDirt(rc.getLocation().directionTo(tileToCheck))) {
+                            if (rc.senseElevation(tileToCheck) < lowestElevation) {
+                                lowestElevation = rc.senseElevation(tileToCheck);
+                                bestPlaceToBuildWall = tileToCheck;
+                            }
                         }
                     }
                 }
-            }
 
-            if (Math.random() < 0.4) {
-                // build the wall
-                if (bestPlaceToBuildWall != null) {
-                    rc.depositDirt(rc.getLocation().directionTo(bestPlaceToBuildWall));
-                    rc.setIndicatorDot(bestPlaceToBuildWall, 0, 255, 0);
-                    System.out.println("building a wall");
+                if (Math.random() < 0.4) {
+                    // build the wall
+                    if (bestPlaceToBuildWall != null) {
+                        rc.depositDirt(rc.getLocation().directionTo(bestPlaceToBuildWall));
+                        rc.setIndicatorDot(bestPlaceToBuildWall, 0, 255, 0);
+                        System.out.println("building a wall");
+                    }
                 }
             }
         }
@@ -177,30 +179,6 @@ public strictfp class RobotPlayer {
         }
     }
 
-    static void definitelyDigDirt() throws GameActionException {
-        definitelyDigDirt(0);
-    }
-
-    static void definitelyDigDirt(int count) throws GameActionException {
-        Direction dir = randomAllDirection();
-        int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
-        if ((distance > 4 && (distance < 9) && rc.canDepositDirt(dir))) {
-            if(rc.canDepositDirt(dir)){
-                rc.depositDirt(dir);
-            } else{
-                if (count < 10)
-                    definitelyDigDirt(count + 1);
-            }
-        } else {
-            if (rc.canDigDirt(dir)) {
-                rc.digDirt(dir);
-            } else{
-                if (count < 10)
-                    definitelyDigDirt(count + 1);
-            }
-        }
-    }
-
     static void findHQ() throws GameActionException {
         if (hqLoc == null) {
             // search surroundings for HQ
@@ -228,7 +206,7 @@ public strictfp class RobotPlayer {
         if(turnCount == 1) {
             sendHqLoc(rc.getLocation());
         }
-        if(numMiners < 10) {
+        if(numMiners < 6) {
             for (Direction dir : directions)
                 if(tryBuild(RobotType.MINER, dir)){
                     numMiners++;
@@ -262,9 +240,9 @@ public strictfp class RobotPlayer {
         updateSoupLocations();
         checkIfSoupGone();
 
-        //Build 1 school when summoned into a specific position by HQ
+        //Build 1 school when summoned into a specific position by HQ and after move away
         System.out.println(turnCount);
-        if(turnCount <= 13){
+        if(turnCount <= 11){
             System.out.println(hqLoc.distanceSquaredTo(myLoc));
             if(myLoc.directionTo(hqLoc) == Direction.NORTHEAST && myLoc.distanceSquaredTo(hqLoc) == 2){
                 System.out.println("Trybuild school");
