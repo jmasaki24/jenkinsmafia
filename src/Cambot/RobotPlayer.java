@@ -47,6 +47,7 @@ public strictfp class RobotPlayer {
     static int lastCheckedBlock = 0;
     static boolean shouldMakeBuilders = false;
     static final int NOTHINGID = 404;
+    static final MapLocation closestRefineryLoc = null;
 
     static MapLocation myLoc;
     static MapLocation hqLoc;
@@ -109,37 +110,42 @@ public strictfp class RobotPlayer {
 
     }
 
+    
     static void runLandscaper() throws GameActionException {
-        myLoc = rc.getLocation();
-        RobotInfo[] robot = rc.senseNearbyRobots(RobotType.LANDSCAPER.sensorRadiusSquared, rc.getTeam());
-        for (RobotInfo robo : robot) {
-            if (robo.team == rc.getTeam()) {
-                //if we see a friendly refinery or hq
-                if (robo.type == RobotType.HQ) {
-                    hqLoc = robo.location;
+        if(rc.getDirtCarrying() == 0){
+            tryDig();
+        }
+
+        MapLocation bestPlaceToBuildWall = null;
+        // find best place to build
+        if(hqLoc != null) {
+            int lowestElevation = 9999999;
+            for (Direction dir : directions) {
+                MapLocation tileToCheck = hqLoc.add(dir);
+                if(rc.getLocation().distanceSquaredTo(tileToCheck) < 4
+                        && rc.canDepositDirt(rc.getLocation().directionTo(tileToCheck))) {
+                    if (rc.senseElevation(tileToCheck) < lowestElevation) {
+                        lowestElevation = rc.senseElevation(tileToCheck);
+                        bestPlaceToBuildWall = tileToCheck;
+                    }
                 }
             }
         }
 
-        Direction dir = randomDirection();
-        int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
-        System.out.println(distance);
-        if(distance <= 8){
-            if ((dir != Direction.WEST && dir != Direction.NORTHWEST) && dir != Direction.SOUTHWEST){
-                tryMove(dir);
+        if (Math.random() < 0.4){
+            // build the wall
+            if (bestPlaceToBuildWall != null) {
+                rc.depositDirt(rc.getLocation().directionTo(bestPlaceToBuildWall));
+                rc.setIndicatorDot(bestPlaceToBuildWall, 0, 255, 0);
+                System.out.println("building a wall");
             }
         }
 
-        // if distance from hq is less than or equal to 2
-        dir = randomAllDirection();
-        distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
-        System.out.println(distance);
-        if ((distance > 3) && (distance < 9)) {
-            rc.depositDirt(dir);
+        // otherwise try to get to the hq
+        if(hqLoc != null){
+            goTo(hqLoc);
         } else {
-            if (rc.canDigDirt(dir)) {
-                rc.digDirt(dir);
-            }
+            tryMove(randomDirection());
         }
     }
 
@@ -274,8 +280,7 @@ public strictfp class RobotPlayer {
             }
         }
 
-        // TODO: 1/12/2020 maybe have the first priority be: run away from flood?
-        // Better to deposit soup instead of refining
+        // Better to deposit soup while you can
         for (Direction dir : directions) {
             if (rc.canDepositSoup(dir)) {
                 rc.depositSoup(dir, rc.getSoupCarrying());
@@ -288,7 +293,7 @@ public strictfp class RobotPlayer {
             if (tryMine(dir)) {
                 System.out.println("I mined soup! " + rc.getSoupCarrying());
                 MapLocation soupLoc = rc.getLocation().add(dir);
-                if (hqLoc.distanceSquaredTo(soupLoc) > 25) {
+                if (hqLoc.distanceSquaredTo(soupLoc) > 15) {
                     if (tryBuild(RobotType.REFINERY, randomDirection())) {
                         broadcastUnitCreation(RobotType.REFINERY, rc.adjacentLocation(dir.opposite()));
                     }
@@ -310,8 +315,7 @@ public strictfp class RobotPlayer {
             //find closest refinery (including hq, should change that tho since HQ will become unreachable)
             MapLocation closestRefineryLoc = hqLoc;
 
-            // will we ever have so many refineries that this is ineffective and we should rather sort the ArrayList
-            // by distance/accessibility all the time? idfk.
+            //Find Closest Refinery
             if (refineryLocations.size() != 0) {
                 for (MapLocation refinery : refineryLocations) {
                     if (myLoc.distanceSquaredTo(refinery) < myLoc.distanceSquaredTo(closestRefineryLoc)) {
@@ -320,7 +324,6 @@ public strictfp class RobotPlayer {
                 }
             }
 
-            // TODO: 1/12/2020 an edge case: when all of the miners are far away and there isn't enough soup to make
             // a refinery, they just sit there and wait for passive soup income.
 
             // how far away is enough to justify a new refinery?
