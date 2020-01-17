@@ -65,6 +65,7 @@ public strictfp class RobotPlayer {
         while (true) {
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             turnCount++;
+            myLoc = rc.getLocation();
             try {
                 // Here, we've separated the controls into a different method for each RobotType.
                 // You can add the missing ones or rewrite this into your own control structure.
@@ -117,36 +118,57 @@ public strictfp class RobotPlayer {
             tryDig();
         }
 
-        MapLocation bestPlaceToBuildWall = null;
-        // find best place to build
-        if(hqLoc != null) {
-            int lowestElevation = 9999999;
-            for (Direction dir : directions) {
-                MapLocation tileToCheck = hqLoc.add(dir);
-                if(rc.getLocation().distanceSquaredTo(tileToCheck) < 4
-                        && rc.canDepositDirt(rc.getLocation().directionTo(tileToCheck))) {
-                    if (rc.senseElevation(tileToCheck) < lowestElevation) {
-                        lowestElevation = rc.senseElevation(tileToCheck);
-                        bestPlaceToBuildWall = tileToCheck;
+        //Wait 15 turns to build
+        if (turnCount > 50) {
+            MapLocation bestPlaceToBuildWall = null;
+            // find best place to build
+            if (hqLoc != null) {
+                int lowestElevation = 9999999;
+                for (Direction dir : directions) {
+                    MapLocation tileToCheck = hqLoc.add(dir);
+                    if (rc.getLocation().distanceSquaredTo(tileToCheck) < 4
+                            && rc.canDepositDirt(rc.getLocation().directionTo(tileToCheck))) {
+                        if (rc.senseElevation(tileToCheck) < lowestElevation) {
+                            lowestElevation = rc.senseElevation(tileToCheck);
+                            bestPlaceToBuildWall = tileToCheck;
+                        }
                     }
                 }
             }
-        }
 
-        if (Math.random() < 0.4){
-            // build the wall
-            if (bestPlaceToBuildWall != null) {
-                rc.depositDirt(rc.getLocation().directionTo(bestPlaceToBuildWall));
-                rc.setIndicatorDot(bestPlaceToBuildWall, 0, 255, 0);
-                System.out.println("building a wall");
+            if (Math.random() < 0.4) {
+                // build the wall
+                if (bestPlaceToBuildWall != null) {
+                    rc.depositDirt(rc.getLocation().directionTo(bestPlaceToBuildWall));
+                    rc.setIndicatorDot(bestPlaceToBuildWall, 0, 255, 0);
+                    System.out.println("building a wall");
+                }
             }
         }
 
         // otherwise try to get to the hq
         if(hqLoc != null){
             System.out.println("Can See hq");
+
+            //Runs from the school
+            RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared,rc.getTeam());
+            MapLocation nextPlace = rc.getLocation();
+            for (RobotInfo robot:robots){
+                if (robot.type == RobotType.DESIGN_SCHOOL){
+                    nextPlace = nextPlace.add(rc.getLocation().directionTo(robot.location).opposite());
+                }
+            }
+            if(robots.length == 0){
+                nextPlace.add(randomDirection());
+            }
+            if(nextPlace != rc.getLocation()) {
+                if(myLoc.add(myLoc.directionTo(nextPlace)).distanceSquaredTo(hqLoc) < 3) { //Only move in directions where you end up on the wall
+                    tryMove(rc.getLocation().directionTo(nextPlace));
+                }
+            }
+            //Else move random (uses move limits to not go random every line)
             Direction rand = randomDirection();
-            if (rc.getLocation().add(rand).distanceSquaredTo(hqLoc) < 3){ //Only move in directions where you end up on the wall
+            if (myLoc.add(rand).distanceSquaredTo(hqLoc) < 3){ //Only move in directions where you end up on the wall
                 tryMove(rand);
             }
         } else {
@@ -235,26 +257,10 @@ public strictfp class RobotPlayer {
 
     //Todo: get miners to build one-two drone-centers to begin the swarm
     static void runMiner() throws GameActionException {
+        //Update Stuff
         updateUnitLocations();
         updateSoupLocations();
         checkIfSoupGone();
-
-        //Build vaporators late game
-        if(rc.getRoundNum() > 780){
-            boolean seeHQ = false;
-            RobotInfo[] robots = rc.senseNearbyRobots();
-            for (RobotInfo robot: robots){
-                if (robot.type == RobotType.HQ){
-                    seeHQ = true;
-                }
-            }
-            if(seeHQ)
-                tryBuild(RobotType.VAPORATOR,randomDirection());
-            goTo((hqLoc));
-        }
-
-
-        myLoc = rc.getLocation();
 
         //Build 1 school when summoned into a specific position by HQ
         System.out.println(turnCount);
@@ -293,7 +299,7 @@ public strictfp class RobotPlayer {
 
         // if at soup limit, go to nearest refinery or hq.
         // if hq or refinery is far away, build a refinery.
-        // if there are less than MINERLIMIT miners, tell hq to pause building miners????
+        // if there are less than MINER LIMIT miners, tell hq to pause building miners????
         if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
             System.out.println("I'm full of soup");
 
@@ -323,7 +329,6 @@ public strictfp class RobotPlayer {
                 System.out.println("moved towards HQ");
                 goTo(closestRefineryLoc);
                 rc.setIndicatorLine(rc.getLocation(), closestRefineryLoc, 255, 0, 255);
-
             }
         }
 
