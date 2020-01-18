@@ -14,7 +14,7 @@ ext.versions = [
     //scala: '2.11.7'
 ]
 
-// TODO: DELETE CREDENTIALS AFTER PUBLIC RELEASE
+
 
 // Here we register battlecode's maven repository, so the gradle knows where to download the engine and client from
 repositories {
