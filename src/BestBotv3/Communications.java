@@ -1,6 +1,7 @@
 package BestBotv3;
 
 import battlecode.common.*;
+import jdk.nashorn.internal.ir.Block;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -13,6 +14,8 @@ public class Communications {
     final int HQID = 0;
     final int EHQID = 232455;
     final int DESIGNSCHOOL = 123;
+
+    int[] lastSpoofedMessage;
 
     static final String[] messageType = {
         "HQ loc",
@@ -78,8 +81,8 @@ public class Communications {
         message[1] = 1;
         message[2] = loc.x; // x coord of HQ
         message[3] = loc.y; // y coord of HQ
-        if (rc.canSubmitTransaction(message, 3)) {
-            rc.submitTransaction(message, 3);
+        if (rc.canSubmitTransaction(message, 1)) {
+            rc.submitTransaction(message, 1);
             broadcastedCreation = true;
         }
     }
@@ -159,5 +162,32 @@ public class Communications {
             rc.submitTransaction(message, 1);
             System.out.println("new refinery!" + loc);
         }
+    }
+
+    public void jamEnemyComms() throws GameActionException {
+        boolean sentMessage = false;
+        //for the last 3 turns
+        for (int i = 1; i <= 3; i++){
+            for (Transaction tx : rc.getBlock(RobotPlayer.turnCount - i)){
+                int[] message = tx.getMessage();
+                if (((message[0] != teamSecret) && !sentMessage) && lastSpoofedMessage != message){
+                    if (rc.canSubmitTransaction(message,1)){
+                        rc.submitTransaction(message,1);
+                        lastSpoofedMessage = message;
+                        sentMessage = true;
+                    }
+                }
+            }
+        }
+
+        if (lastSpoofedMessage != null){
+            if (!sentMessage){
+                if (rc.canSubmitTransaction(lastSpoofedMessage,1)){
+                    rc.submitTransaction(lastSpoofedMessage,1);
+                }
+            }
+        }
+
+        System.out.println(RobotPlayer.turnCount);
     }
 }

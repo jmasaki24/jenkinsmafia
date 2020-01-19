@@ -6,7 +6,7 @@ public class Robot {
     RobotController rc;
     Communications comms;
 
-    int turnCount = 0;
+    public int turnCount = 0;
 
     public Robot(RobotController r) {
         this.rc = r;

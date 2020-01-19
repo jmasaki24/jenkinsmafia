@@ -50,9 +50,11 @@ public class Miner extends Unit {
             if (tryMine(dir)) {
                 System.out.println("I mined soup! " + rc.getSoupCarrying());
                 MapLocation soupLoc = rc.getLocation().add(dir);
-                if (hqLoc.distanceSquaredTo(soupLoc) > 10) {
-                    if (tryBuild(RobotType.REFINERY, Util.randomDirection())) {
-                        comms.broadcastUnitCreation(RobotType.REFINERY, rc.adjacentLocation(dir.opposite()));
+                if (refineryLocations.size() != 0){
+                    if (refineryLocations.get(refineryLocations.size()-1).distanceSquaredTo(soupLoc) > 10) {
+                        if (tryBuild(RobotType.REFINERY, Util.randomDirection())) {
+                            comms.broadcastUnitCreation(RobotType.REFINERY, rc.adjacentLocation(dir.opposite()));
+                        }
                     }
                 }
                 if(soupLocations.size() == 0) {

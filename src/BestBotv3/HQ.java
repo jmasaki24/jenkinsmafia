@@ -34,6 +34,12 @@ public class HQ extends Shooter {
                 }
             }
         }
+
+        //Every 3 turns repeat messages
+        if(turnCount % 3 == 0){
+            comms.jamEnemyComms();
+        }
+
         if(numMiners < MINER_LIMIT) {
             for (Direction dir : Util.directions)
                 if(tryBuild(RobotType.MINER, dir)){
