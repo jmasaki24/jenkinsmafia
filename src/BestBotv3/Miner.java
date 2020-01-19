@@ -90,20 +90,6 @@ public class Miner extends Unit {
                         closestRefineryLoc = refinery;
                     }
                 }
-
-
-                // If there is a design school or landscaper of same team, then the miner needs to go away and find another
-                for (RobotInfo robot:robots){
-                    if ((robot.type == RobotType.DESIGN_SCHOOL || robot.type == RobotType.LANDSCAPER) && robot.team == rc.getTeam()) {
-                        System.out.println("I see the design school");
-                        if (rc.getLocation().distanceSquaredTo(hqLoc)<=2){
-                            System.out.println("I am going to try to move away now");
-                            closestRefineryLoc = null;
-                            System.out.println(refineryLocations);
-                            rc.move(rc.getLocation().directionTo(hqLoc).opposite());
-                        }
-                    }
-                }
             }
 
             // a refinery, they just sit there and wait for passive soup income.
