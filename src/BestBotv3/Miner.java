@@ -78,7 +78,9 @@ public class Miner extends Unit {
         MapLocation closestRefineryLoc = hqLoc;
 
 
+
         RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared,rc.getTeam());
+
         if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
             System.out.println("I'm full of soup");
             //Find Closest Refinery
