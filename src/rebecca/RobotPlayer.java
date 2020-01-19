@@ -19,9 +19,12 @@ public strictfp class RobotPlayer {
     static boolean findHQ = false;
     static MapLocation m1, m2, m3;
     static int lastCheckedBlock = 0;
+    static int enemyHQID = 3239;
+    static int teamSecret = 1231231231;
     
     static int mapHeight;
     static int mapWidth;
+    static ArrayList<MapLocation> soupLocations = new ArrayList<>();
     
     static MapLocation enemyHQ = new MapLocation(-5, -5);
 
@@ -148,45 +151,47 @@ public strictfp class RobotPlayer {
         }*/
 
         int fulfillmentcount = 0;
+
+
         //Vision and Memory
         RobotInfo[] robot = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared, rc.getTeam());
         for (RobotInfo robo : robot) {
             if (robo.team == rc.getTeam()) {
                 //if we see a friendly refinery or hq
-            	if(robo.type == RobotType.FULFILLMENT_CENTER) {
-            		fulfillmentcount++;
-            	}
-                 if(robo.type == RobotType.HQ){
+                if (robo.type == RobotType.FULFILLMENT_CENTER) {
+                    fulfillmentcount++;
+                }
+                if (robo.type == RobotType.HQ) {
                     seesHQ = true;
                     ourHQ = robo.location;
                     System.out.println("FoundHQ");
-                	
-                	m1 = ourHQ.translate(0, (mapHeight - 2*ourHQ.y -1));
-                	m2 = ourHQ.translate((mapWidth - 2*ourHQ.x - 1), 0);
-                	m3 = ourHQ.translate((mapWidth - 2*ourHQ.x - 1), (mapHeight - 2*ourHQ.y -1));
-                	
-                	System.out.println("1 = (" + m1.x + ", " + m1.y);
-                	System.out.println("2 = (" + m2.x + ", " + m2.y);
-                	System.out.println("3 = (" + m3.x + ", " + m3.y);
-                	
-                	if(rc.senseRobotAtLocation(m1) != null) {
-                		if((rc.senseRobotAtLocation(m1)).type == RobotType.HQ) {
-                    		enemyHQ = (rc.senseRobotAtLocation(m1)).location;
-                			System.out.println("The enemy HQ is at (" + enemyHQ.x + ", " + enemyHQ.y + ")");
-                    	}
-                	}
-                	if(rc.senseRobotAtLocation(m2) != null) {
-                		if((rc.senseRobotAtLocation(m2)).type == RobotType.HQ) {
-                    		enemyHQ = (rc.senseRobotAtLocation(m2)).location;
-                			System.out.println("The enemy HQ is at (" + enemyHQ.x + ", " + enemyHQ.y + ")");
-                    	}
-                	}
-                	if(rc.senseRobotAtLocation(m3) != null) {
-                		if((rc.senseRobotAtLocation(m3)).type == RobotType.HQ) {
-                    		enemyHQ = (rc.senseRobotAtLocation(m3)).location;
-                			System.out.println("The enemy HQ is at (" + enemyHQ.x + ", " + enemyHQ.y + ")");
-                    	}
-                	}
+
+                    m1 = ourHQ.translate(0, (mapHeight - 2 * ourHQ.y - 1));
+                    m2 = ourHQ.translate((mapWidth - 2 * ourHQ.x - 1), 0);
+                    m3 = ourHQ.translate((mapWidth - 2 * ourHQ.x - 1), (mapHeight - 2 * ourHQ.y - 1));
+
+                    System.out.println("1 = (" + m1.x + ", " + m1.y);
+                    System.out.println("2 = (" + m2.x + ", " + m2.y);
+                    System.out.println("3 = (" + m3.x + ", " + m3.y);
+
+                    /*if (rc.senseRobotAtLocation(m1) != null) {
+                        if ((rc.senseRobotAtLocation(m1)).type == RobotType.HQ) {
+                            enemyHQ = (rc.senseRobotAtLocation(m1)).location;
+                            System.out.println("The enemy HQ is at (" + enemyHQ.x + ", " + enemyHQ.y + ")");
+                        }
+                    }
+                    if (rc.senseRobotAtLocation(m2) != null) {
+                        if ((rc.senseRobotAtLocation(m2)).type == RobotType.HQ) {
+                            enemyHQ = (rc.senseRobotAtLocation(m2)).location;
+                            System.out.println("The enemy HQ is at (" + enemyHQ.x + ", " + enemyHQ.y + ")");
+                        }
+                    }
+                    if (rc.senseRobotAtLocation(m3) != null) {
+                        if ((rc.senseRobotAtLocation(m3)).type == RobotType.HQ) {
+                            enemyHQ = (rc.senseRobotAtLocation(m3)).location;
+                            System.out.println("The enemy HQ is at (" + enemyHQ.x + ", " + enemyHQ.y + ")");
+                        }
+                    }*/
                 	
                 	/*RobotInfo[] sensem1 = rc.senseNearbyRobots(m1, -1, rc.getTeam().opponent());
                 	for(RobotInfo roboo: sensem1) {
@@ -215,25 +220,25 @@ public strictfp class RobotPlayer {
                     inventoryFull = false;
                     lastSeenRefinery = robo.location;
                     //System.out.println("Found a refinery!");
-                } else if(robo.type == RobotType.FULFILLMENT_CENTER){
+                } else if (robo.type == RobotType.FULFILLMENT_CENTER) {
                     seesAmazon = true;
                     lastSeenAmazon = robo.location;
-                } else if(robo.type == RobotType.DESIGN_SCHOOL){
+                } else if (robo.type == RobotType.DESIGN_SCHOOL) {
                     seesSchool = true;
                     lastSeenSchool = robo.location;
                 }
             }
         }
-        
+
         if(fulfillmentcount == 0) {
-        	boolean dronecenter = false;
+            boolean dronecenter = false;
             for(Direction dir: directions) {
-            	if(!dronecenter)
-            		if(tryBuild(RobotType.FULFILLMENT_CENTER, dir)) {
-            			//System.out.println("Need drone building");
-            			dronecenter = true;
-            		}
-            	
+                if(!dronecenter)
+                    if(tryBuild(RobotType.FULFILLMENT_CENTER, dir)) {
+                        //System.out.println("Need drone building");
+                        dronecenter = true;
+                    }
+
             }
         }
         
@@ -667,6 +672,30 @@ public strictfp class RobotPlayer {
         System.out.println(answer);
         return answer;
     }
+
+    public static void broadcastSoupLocation(MapLocation loc ) throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = 2;
+        message[2] = loc.x; // x coord of HQ
+        message[3] = loc.y; // y coord of HQ
+        if (rc.canSubmitTransaction(message, 3)) {
+            rc.submitTransaction(message, 3);
+            System.out.println("new soup!" + loc);
+        }
+    }
+
+    public static void updateSoupLocations() throws GameActionException {
+        for(Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
+            int[] mess = tx.getMessage();
+            if(mess[0] == teamSecret && mess[1] == 2){
+                System.out.println("heard about a tasty new soup location");
+                soupLocations.add(new MapLocation(mess[2], mess[3]));
+            }
+        }
+    }
+
+
 
     static void PutItOnTheChain(int a) throws GameActionException {
         PutItOnTheChain(a,rc.getLocation());
