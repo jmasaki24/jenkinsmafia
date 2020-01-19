@@ -78,6 +78,7 @@ public class Miner extends Unit {
         MapLocation closestRefineryLoc = hqLoc;
 
 
+        RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared,rc.getTeam());
         if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
             System.out.println("I'm full of soup");
             //Find Closest Refinery
@@ -90,7 +91,6 @@ public class Miner extends Unit {
 
 
                 // If there is a design school or landscaper of same team, then the miner needs to go away and find another
-                RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared,rc.getTeam());
                 for (RobotInfo robot:robots){
                     if ((robot.type == RobotType.DESIGN_SCHOOL || robot.type == RobotType.LANDSCAPER) && robot.team == rc.getTeam()) {
                         System.out.println("I see the design school");
