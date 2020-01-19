@@ -52,7 +52,7 @@ public strictfp class RobotPlayer {
 
         // This is the RobotController object. You use it to perform actions from this robot,
         // and to get information on its current status.
-        RobotPlayer.rc = rc;
+        rebecca.RobotPlayer.rc = rc;
 
         mapHeight = rc.getMapHeight();
         mapWidth = rc.getMapWidth();
@@ -106,11 +106,12 @@ public strictfp class RobotPlayer {
         }
     }
 
+    // TODO: copy other bots code to get this to compile
     static void runHQ() throws GameActionException {
-        if (rc.getRobotCount() <= 5  || rc.getRoundNum() < 35) {
+        /*if (rc.getRobotCount() <= 5  || rc.getRoundNum() < 35) {
             for (Direction dir : directions)
                 tryBuild(RobotType.MINER, dir);
-        }
+        }*/
     }
 
     static void runMiner() throws GameActionException {

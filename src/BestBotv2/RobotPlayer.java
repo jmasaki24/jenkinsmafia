@@ -1,12 +1,11 @@
-package Cambot;
+package BestBotv2;
 import battlecode.common.*;
 import java.lang.Math;
 import java.util.ArrayList;
 
-// basically I'm writing this file from scratch since I'm getting frustrated and I think it's because I don't know
-// what's going on. rip me.
-
-// focused on pathfinding at the moment
+//Long term goals
+//TODO: The goal of this bot is to be as simple and clean as possible to enable future versions to be even better
+//Todo: Comment any uncommented piece of code to ensure we know what each section generally does
 
 public strictfp class RobotPlayer {
     static RobotController rc;
@@ -33,11 +32,7 @@ public strictfp class RobotPlayer {
             Direction.NORTHWEST
     };
 
-    // from lectureplayer, could be deleted
-    static RobotType[] spawnedByMiner = {RobotType.REFINERY, RobotType.VAPORATOR, RobotType.DESIGN_SCHOOL,
-            RobotType.FULFILLMENT_CENTER, RobotType.NET_GUN};
-
-
+    //Blockchain Stuff
     static final int HQID = 0;
     static final int DESIGNSCHOOL = 123;
     static int turnCount; // number of turns since creation
@@ -46,7 +41,10 @@ public strictfp class RobotPlayer {
     static int numLandscapers = 0;
     static int lastCheckedBlock = 0;
     static boolean shouldMakeBuilders = false;
+    static final int NOTHINGID = 404;
+    static final MapLocation closestRefineryLoc = null;
 
+    //Map Locations
     static MapLocation myLoc;
     static MapLocation hqLoc;
     static ArrayList<MapLocation> soupLocations = new ArrayList<>();
@@ -56,17 +54,18 @@ public strictfp class RobotPlayer {
     static ArrayList<MapLocation> amazonLocations = new ArrayList<>();
 
     // used in blockchain transactions
-    static final int teamSecret = 1231231231;
+    static final int teamSecret = 232232332;
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
-        Cambot.RobotPlayer.rc = rc;
+        BestBotv2.RobotPlayer.rc = rc;
 
         turnCount = 0;
 
         while (true) {
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             turnCount++;
+            myLoc = rc.getLocation();
             try {
                 // Here, we've separated the controls into a different method for each RobotType.
                 // You can add the missing ones or rewrite this into your own control structure.
@@ -80,6 +79,10 @@ public strictfp class RobotPlayer {
                     case DESIGN_SCHOOL:      runDesignSchool();      break;
                     //case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
                     case LANDSCAPER:         runLandscaper();        break;
+                    //Todo: Get drones to swarm enemy base
+                    //Todo: Get drones to dive in all at once
+                    //Todo: Get drones to drop enemy landscapers into water
+                    //Todo: Bonus: Get our landscapers on their wall and bury their HQ
                     //case DELIVERY_DRONE:     runDeliveryDrone();     break;
                     //case NET_GUN:            runNetGun();            break;
                 }
@@ -95,8 +98,10 @@ public strictfp class RobotPlayer {
 
     }
 
+    //Todo: set a hard limit of landscapers to make
+    //Creates 5 when we have the resources to
     static void runDesignSchool() throws GameActionException {
-        if (rc.getTeamSoup()>=(4*RobotType.LANDSCAPER.cost)){
+        if (rc.getTeamSoup()>=(5*RobotType.LANDSCAPER.cost)){
             shouldMakeBuilders = true;
         }
         if (shouldMakeBuilders){
@@ -104,86 +109,72 @@ public strictfp class RobotPlayer {
                 tryBuild(RobotType.LANDSCAPER,dir);
             }
         }
-
-
     }
 
+    //Currently builds up our wall evenly
     static void runLandscaper() throws GameActionException {
-        myLoc = rc.getLocation();
-        RobotInfo[] robot = rc.senseNearbyRobots(RobotType.LANDSCAPER.sensorRadiusSquared, rc.getTeam());
-        for (RobotInfo robo : robot) {
-            if (robo.team == rc.getTeam()) {
-                //if we see a friendly refinery or hq
-                if (robo.type == RobotType.HQ) {
-                    hqLoc = robo.location;
+        if(rc.getDirtCarrying() == 0){
+            tryDig();
+        }
+
+        //Wait 15 turns to build
+        if (turnCount > 50) {
+            for (int i = 0; i < 8; i++){
+                MapLocation bestPlaceToBuildWall = null;
+                // find best place to build
+                if (hqLoc != null) {
+                    int lowestElevation = 9999999;
+                    for (Direction dir : directions) {
+                        MapLocation tileToCheck = hqLoc.add(dir);
+                        if (rc.getLocation().distanceSquaredTo(tileToCheck) < 4
+                                && rc.canDepositDirt(rc.getLocation().directionTo(tileToCheck))) {
+                            if (rc.senseElevation(tileToCheck) < lowestElevation) {
+                                lowestElevation = rc.senseElevation(tileToCheck);
+                                bestPlaceToBuildWall = tileToCheck;
+                            }
+                        }
+                    }
+                }
+
+                if (Math.random() < 0.4) {
+                    // build the wall
+                    if (bestPlaceToBuildWall != null) {
+                        rc.depositDirt(rc.getLocation().directionTo(bestPlaceToBuildWall));
+                        rc.setIndicatorDot(bestPlaceToBuildWall, 0, 255, 0);
+                        System.out.println("building a wall");
+                    }
                 }
             }
         }
 
-        Direction dir = randomDirection();
-        int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
-        System.out.println(distance);
-        if(distance <= 8){
-            if ((dir != Direction.WEST && dir != Direction.NORTHWEST) && dir != Direction.SOUTHWEST){
-                tryMove(dir);
+        // otherwise try to get to the hq
+        if(hqLoc != null){
+            System.out.println("Can See hq");
+
+            //Runs from the school
+            RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared,rc.getTeam());
+            MapLocation nextPlace = rc.getLocation();
+            for (RobotInfo robot:robots){
+                if (robot.type == RobotType.DESIGN_SCHOOL){
+                    nextPlace = nextPlace.add(rc.getLocation().directionTo(robot.location).opposite());
+                }
             }
-        }
-
-        // if distance from hq is less than or equal to 2
-        dir = randomAllDirection();
-        distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
-        System.out.println(distance);
-        if ((distance > 3) && (distance < 9)) {
-            rc.depositDirt(dir);
-        } else {
-            if (rc.canDigDirt(dir)) {
-                rc.digDirt(dir);
+            if(robots.length == 0){
+                nextPlace = nextPlace.add(randomDirection());
             }
-        }
-    }
-
-//    static void definitelyMove() throws GameActionException {
-//        definitelyMove(0);
-//    }
-//
-//    static void definitelyMove(int count) throws GameActionException {
-//        Direction dir = randomDirection();
-//        int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
-//        System.out.println(distance);
-//        if(distance <= 8){
-//            if ((dir != Direction.EAST && dir != Direction.NORTHEAST) && dir != Direction.SOUTHEAST){
-//                if(!tryMove(dir)){
-//                    if(count < 10){
-//                        definitelyMove(count + 1);
-//                    }
-//                }
-//            }
-//        }
-//        if(count < 10)
-//            definitelyMove(count + 1);
-//    }
-
-    static void definitelyDigDirt() throws GameActionException {
-        definitelyDigDirt(0);
-    }
-
-    static void definitelyDigDirt(int count) throws GameActionException {
-        Direction dir = randomAllDirection();
-        int distance = myLoc.add(dir).distanceSquaredTo(hqLoc);
-        if ((distance > 4 && (distance < 9) && rc.canDepositDirt(dir))) {
-            if(rc.canDepositDirt(dir)){
-                rc.depositDirt(dir);
-            } else{
-                if (count < 10)
-                    definitelyDigDirt(count + 1);
+            if(nextPlace != rc.getLocation()) {
+                if(myLoc.add(myLoc.directionTo(nextPlace)).distanceSquaredTo(hqLoc) < 3) { //Only move in directions where you end up on the wall
+                    tryMove(rc.getLocation().directionTo(nextPlace));
+                }
+            }
+            //Else move random (uses move limits to not go random every line)
+            Direction rand = randomDirection();
+            if (myLoc.add(rand).distanceSquaredTo(hqLoc) < 3){ //Only move in directions where you end up on the wall
+                tryMove(rand);
             }
         } else {
-            if (rc.canDigDirt(dir)) {
-                rc.digDirt(dir);
-            } else{
-                if (count < 10)
-                    definitelyDigDirt(count + 1);
-            }
+            System.out.println("Can't see hq");
+            tryMove(randomDirection());
         }
     }
 
@@ -214,7 +205,7 @@ public strictfp class RobotPlayer {
         if(turnCount == 1) {
             sendHqLoc(rc.getLocation());
         }
-        if(numMiners < 15) {
+        if(numMiners < 6) {
             for (Direction dir : directions)
                 if(tryBuild(RobotType.MINER, dir)){
                     numMiners++;
@@ -234,20 +225,24 @@ public strictfp class RobotPlayer {
                 tryBuild(RobotType.MINER,Direction.SOUTHWEST);
             }
         }
+        if (seeDesignSchool && rc.getRoundNum() > 300){
+            for (Direction dir: directions){
+                tryBuild(RobotType.MINER,randomDirection());
+            }
+        }
     }
 
+    //Todo: get miners to build one-two drone-centers to begin the swarm
+    //Todo: Find the first made miner
     static void runMiner() throws GameActionException {
+        //Update Stuff
         updateUnitLocations();
         updateSoupLocations();
         checkIfSoupGone();
 
-
-
-        myLoc = rc.getLocation();
-
-        //Build 1 school when summoned into a specific position by HQ
+        //Build 1 school when summoned into a specific position by HQ and after move away
         System.out.println(turnCount);
-        if(turnCount <= 13){
+        if(turnCount <= 11){
             System.out.println(hqLoc.distanceSquaredTo(myLoc));
             if(myLoc.directionTo(hqLoc) == Direction.NORTHEAST && myLoc.distanceSquaredTo(hqLoc) == 2){
                 System.out.println("Trybuild school");
@@ -255,8 +250,7 @@ public strictfp class RobotPlayer {
             }
         }
 
-        // TODO: 1/12/2020 maybe have the first priority be: run away from flood?
-        // Better to deposit soup instead of refining
+        // Better to deposit soup while you can
         for (Direction dir : directions) {
             if (rc.canDepositSoup(dir)) {
                 rc.depositSoup(dir, rc.getSoupCarrying());
@@ -269,7 +263,7 @@ public strictfp class RobotPlayer {
             if (tryMine(dir)) {
                 System.out.println("I mined soup! " + rc.getSoupCarrying());
                 MapLocation soupLoc = rc.getLocation().add(dir);
-                if (hqLoc.distanceSquaredTo(soupLoc) > 25) {
+                if (hqLoc.distanceSquaredTo(soupLoc) > 15) {
                     if (tryBuild(RobotType.REFINERY, randomDirection())) {
                         broadcastUnitCreation(RobotType.REFINERY, rc.adjacentLocation(dir.opposite()));
                     }
@@ -283,7 +277,7 @@ public strictfp class RobotPlayer {
 
         // if at soup limit, go to nearest refinery or hq.
         // if hq or refinery is far away, build a refinery.
-        // if there are less than MINERLIMIT miners, tell hq to pause building miners????
+        // if there are less than MINER LIMIT miners, tell hq to pause building miners????
         if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
             System.out.println("I'm full of soup");
 
@@ -291,8 +285,7 @@ public strictfp class RobotPlayer {
             //find closest refinery (including hq, should change that tho since HQ will become unreachable)
             MapLocation closestRefineryLoc = hqLoc;
 
-            // will we ever have so many refineries that this is ineffective and we should rather sort the ArrayList
-            // by distance/accessibility all the time? idfk.
+            //Find Closest Refinery
             if (refineryLocations.size() != 0) {
                 for (MapLocation refinery : refineryLocations) {
                     if (myLoc.distanceSquaredTo(refinery) < myLoc.distanceSquaredTo(closestRefineryLoc)) {
@@ -301,7 +294,6 @@ public strictfp class RobotPlayer {
                 }
             }
 
-            // TODO: 1/12/2020 an edge case: when all of the miners are far away and there isn't enough soup to make
             // a refinery, they just sit there and wait for passive soup income.
 
             // how far away is enough to justify a new refinery?
@@ -315,7 +307,6 @@ public strictfp class RobotPlayer {
                 System.out.println("moved towards HQ");
                 goTo(closestRefineryLoc);
                 rc.setIndicatorLine(rc.getLocation(), closestRefineryLoc, 255, 0, 255);
-
             }
         }
 
@@ -346,7 +337,6 @@ public strictfp class RobotPlayer {
     }
 
     // tries to move in the general direction of dir
-    // THIS IS WHERE I WORK ON PATHFINDING - jm
     static boolean goTo(Direction dir) throws GameActionException {
 
         // while, I cannot move, rotate the direction to the right.
@@ -372,6 +362,7 @@ public strictfp class RobotPlayer {
         return goTo(rc.getLocation().directionTo(destination));
     }
 
+    //Removes soup location from memory if there is no soup
     static void checkIfSoupGone() throws GameActionException {
         if (soupLocations.size() > 0) {
             MapLocation targetSoupLoc = soupLocations.get(0);
@@ -473,7 +464,8 @@ public strictfp class RobotPlayer {
         } else return false;
     }
 
-
+    //Jamie's Blockchain stuff
+    //TODO: add round number to the team secret to prevent enemy spamming
 
     public static void broadcastSoupLocation(MapLocation loc ) throws GameActionException {
         int[] message = new int[7];
@@ -481,8 +473,8 @@ public strictfp class RobotPlayer {
         message[1] = 2;
         message[2] = loc.x; // x coord of HQ
         message[3] = loc.y; // y coord of HQ
-        if (rc.canSubmitTransaction(message, 3)) {
-            rc.submitTransaction(message, 3);
+        if (rc.canSubmitTransaction(message, 1)) {
+            rc.submitTransaction(message, 1);
             System.out.println("new soup!" + loc);
         }
     }
@@ -503,8 +495,8 @@ public strictfp class RobotPlayer {
         message[1] = HQID;
         message[2] = loc.x; // x coord of HQ
         message[3] = loc.y; // y coord of HQ
-        if (rc.canSubmitTransaction(message, 3))
-            rc.submitTransaction(message, 3);
+        if (rc.canSubmitTransaction(message, 1))
+            rc.submitTransaction(message, 1);
     }
 
     public static void getHqLocFromBlockchain() throws GameActionException {
@@ -541,8 +533,8 @@ public strictfp class RobotPlayer {
         message[2] = loc.x; // x coord of unit
         message[3] = loc.y; // y coord of unit
         message[4] = typeNumber;
-        if (rc.canSubmitTransaction(message, 3)) {
-            rc.submitTransaction(message, 3);
+        if (rc.canSubmitTransaction(message, 1)) {
+            rc.submitTransaction(message, 1);
             System.out.println("new refinery!" + loc);
         }
     }
@@ -562,177 +554,5 @@ public strictfp class RobotPlayer {
 
             }
         }
-    }
-
-    //Cam's pretty lame blockchain stuff here until end of doc
-
-    static ArrayList<MapLocation> queueBlockchain(int id) throws GameActionException {
-        ArrayList<MapLocation> answer = new ArrayList<MapLocation>();
-        int block = lastCheckedBlock + 1;
-        for (int i = block; i < rc.getRoundNum(); i++){
-            int[][] messages = getMessages(i);
-            for (int e = 0; e < messages.length; e++){
-                if (messages[0][e] == id){
-                    answer.add(getMessageLocation(messages[1][e]));
-                }
-            }
-        }
-        lastCheckedBlock = rc.getRoundNum() - 1;
-        System.out.println(answer);
-        return answer;
-    }
-
-    static void PutItOnTheChain(int a) throws GameActionException {
-        PutItOnTheChain(a,rc.getLocation());
-    }
-
-    static void PutItOnTheChain(int a,MapLocation pos) throws GameActionException {
-        int[] message = new int[2];
-        String messageF = "";
-        for (int i = 0; i < message.length; i++) {
-            if (i == 0) {
-                //000 when entered becomes 0, this corrects for that
-                if (a < 1000) {
-                    messageF += "0";
-                    if (a < 100) {
-                        messageF += "0";
-                        if (a < 10) {
-                            messageF += "0";
-                        }
-                    }
-                }
-                messageF += Integer.toString(a); //a needs to be a 4 digit integer
-            } else {
-                int x = pos.x;
-                int y = pos.y;
-                String tX = "";
-                String tY = "";
-
-                if (x < 10) {
-                    tX += "0";
-                }
-                if (y < 10) {
-                    tY += "0";
-                }
-                messageF = (tX + (x + "" + tY) + y);//location x added to location
-            }
-            //add round number
-            //Protect against loss of zeroes
-            a = rc.getRoundNum();
-            if (a < 1000) {
-                messageF += "0";
-                if (a < 100) {
-                    messageF += "0";
-                    if (a < 10) {
-                        messageF += "0";
-                    }
-                }
-            }
-
-            messageF = messageF + (rc.getRoundNum() % 1000); // add last 4 digits of round number
-            int sum = checkSum(messageF);
-            String addZero = "";
-            if (sum < 10) {
-                addZero = "0";
-            }
-            messageF = messageF + addZero + sum;
-            message[i] = stringToInt(messageF);
-            System.out.println(messageF);
-        }
-        if (rc.canSubmitTransaction(message, 1)) {
-            rc.submitTransaction(message, 1);
-        }
-    }
-
-
-    static void PutItOnTheChain(String a) throws GameActionException {
-        PutItOnTheChain(stringToInt(a));
-    }
-
-    static int stringToInt(String a){
-        if (a.length() > 7){ // if string is too long for Integer.parseInt() cut it in half and do it on a smaller piece of the string
-            String aa = a.substring(0,a.length()/2);
-            String ab = a.substring(a.length()/2);
-
-            //recombine the smaller strings
-            int aaa = (int) (stringToInt(aa) * Math.pow(10,ab.length()));
-            int aba = stringToInt(ab);
-            return (aaa + aba);
-        } else{
-            return Integer.parseInt(a);
-        }
-    }
-
-
-    //Checks the checksum of each message
-    static boolean isOurMessage(int[] x){
-        boolean[] messageValid = new boolean[x.length];
-        int count = 0;
-        for(int a: x) {
-            int sum = a%100;
-            if(checkSum(a/100) == sum){
-                messageValid[count] = true;
-            } else{
-                messageValid[count] = false;
-            }
-            count++;
-        }
-        //check if all messages are valid
-        for(boolean a: messageValid){
-            if (!a){
-                return false;
-            }
-        }
-        return true;
-    }
-
-    static boolean isOurMessage(int block,int message) throws GameActionException {
-        Transaction[] thisBlock = rc.getBlock(block);
-        int[] x = thisBlock[message - 1].getMessage();
-        return isOurMessage(x);
-    }
-
-    //gets initial message from encrypted message
-    static int getMessage(int a){
-        return a/1000000;
-    }
-
-
-    static MapLocation getMessageLocation(int a){
-        return new MapLocation (getMessage(a)/100,getMessage(a)%100);
-    }
-
-    //Use this to get a list of messages from a block
-    static int[][] getMessages(int block) throws GameActionException {
-        Transaction[] Block = rc.getBlock(block);
-        int[][] ourMessages = new int[Block.length][2];
-
-        int count = 0;
-        for(Transaction submission: Block){
-            if(isOurMessage(submission.getMessage())){
-                ourMessages[count][0] = getMessage(submission.getMessage()[0]);
-                ourMessages[count][0] = getMessage(submission.getMessage()[1]);
-                count++;
-            }
-        }
-        return ourMessages;
-    }
-
-
-
-    static int checkSum(int a){
-        int sum = 0;
-        int temp = a;
-        //Add up all the digits
-        while (temp > 9) {
-            sum += temp % 10;
-            temp = temp / 10;
-        }
-        sum += temp;
-        return sum;
-    }
-
-    static int checkSum(String a){
-        return checkSum(stringToInt(a));
     }
 }
