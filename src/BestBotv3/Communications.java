@@ -112,7 +112,7 @@ public class Communications {
     // used by miners only, for now
     public void updateSoupLocations(ArrayList<MapLocation> soupLocations) throws GameActionException {
         // if its just been created, go through all of the blocks and transactions to find soup
-        if (Robot.turnCount == 1) {
+        if (RobotPlayer.turnCount == 1) {
             for (int i = 1; i< rc.getRoundNum(); i++) {
                 crawlBlockchainForSoupLocations(soupLocations, i);
             }
