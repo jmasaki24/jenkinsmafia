@@ -3,14 +3,10 @@ package madJames;
 import battlecode.common.*;
 import java.lang.Math;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Map;
 
-// BEHAVIOR:    1. makes a fcenter and drone asap.
-//              2. flies drone around whole map, uploading certain locations to chain
-//              3. make map of locations in each unit
-//              4. tests pathfinding for specific locations
-//              5.
-
-
+// BEHAVIOR:    1. miner scans surrounding
 
 public strictfp class RobotPlayer {
     static RobotController rc;
@@ -33,15 +29,17 @@ public strictfp class RobotPlayer {
 
     static final int HQID = 0;
     static final int DESIGNSCHOOL = 123;
-    static int turnCount; // number of turns since creation
-
-    static int numCows = 0; // simple blockchain id 1
-    static int numDrones = 0; // simple blockchain id 2
-    static int numLandscapers = 0; // simple blockchain id 6
-    static int numMiners = 0; // simple blockchain id 7
-
+    static int turnCount = 0; // number of turns since creation
+    static int numMiners = 0; // used by HQ only, at the moment
+    static int numAmazons = 0; // used by HQ only, at the moment
+    static int numDrones = 0; // used by amazons only, at the moment
+    static int numDesignSchools = 0;
+    static int numLandscapers = 0;
     static int lastCheckedBlock = 0;
-    static final int NOTHINGID = 404;
+
+    // as an int, takes up 0.015 mb. if it were a long, it would take up a max of 64*64*8 = 32768 bytes, 0.03 mb.
+    // from left to right, first 32 bits are elevation (cuz its an int anyway), then 1 bit for flooded, then 1 bit for accessible. still have 30 empty bits
+    static long[][] map;
 
     static MapLocation myLoc;
     static MapLocation hqLoc;
@@ -51,18 +49,23 @@ public strictfp class RobotPlayer {
     static ArrayList<MapLocation> vaporatorLocations = new ArrayList<>();
     static ArrayList<MapLocation> amazonLocations = new ArrayList<>();
 
+    static final int MINER_LIMIT = 5;
+
     // used in blockchain transactions
-    static final int teamSecret = 444444444;
+    static final int teamSecret = 555555555;
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
         madJames.RobotPlayer.rc = rc;
+        map = new long[rc.getMapHeight()][rc.getMapWidth()]; // should be a square array, i.e. number of rows and columns are the same.
 
-        turnCount = 0;
 
         System.out.println("I'm a " + rc.getType() + " and I just got created!");
         while (true) {
             turnCount++;
+
+            myLoc = rc.getLocation();
+
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
                 // Here, we've separated the controls into a different method for each RobotType.
@@ -79,9 +82,13 @@ public strictfp class RobotPlayer {
                     //case REFINERY:           runRefinery();          break;
                     //case VAPORATOR:          runVaporator();         break;
                     //case DESIGN_SCHOOL:      runDesignSchool();      break;
-                    //case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
+                    case FULFILLMENT_CENTER:
+                        runFulfillmentCenter();
+                        break;
                     //case LANDSCAPER:         runLandscaper();        break;
-                    //case DELIVERY_DRONE:     runDeliveryDrone();     break;
+                    case DELIVERY_DRONE:
+                        runDeliveryDrone();
+                        break;
                     //case NET_GUN:            runNetGun();            break;
                 }
 
@@ -120,56 +127,117 @@ public strictfp class RobotPlayer {
 
     }
 
+    // use myLoc, not hqLoc
+    static RobotInfo[] nearbyRobots;
+
     static void runHQ() throws GameActionException {
-        if (turnCount >= 1) {
-            updateArmyInfo();
-        }
         if (turnCount == 1) {
             sendHqLoc(rc.getLocation());
-        }
-        System.out.println("numMiners: " + numMiners);
 
-        // don't build miners until we get a fullfillment center
-        if (numMiners >= 3 && amazonLocations.size() == 0) {
-            // do nothing
-            System.out.println("do nothing");
-        } else if (numMiners < 15) {
+            MapLocation[] nearbySoupLocations = rc.senseNearbySoup();
+            if (nearbySoupLocations.length > 0) {
+                for (MapLocation nearbySoup : nearbySoupLocations) {
+                    broadcastSoupLocation(nearbySoup, true);
+                }
+            }
+     }
+
+
+
+        if (numMiners < MINER_LIMIT) {
             for (Direction dir : directions) {
-                tryBuild(RobotType.MINER, dir, numMiners);
+                if (tryBuild(RobotType.MINER, dir)) {
+                    System.out.println("built miner");
+                    numMiners++;
+                    //nearbyRobots = rc.senseNearbyRobots(2);
+                    //for (RobotInfo r : nearbyRobots) {
+                    //    if (r != null && r.location.equals(myLoc.add(dir))) {
+                    //        System.out.println("FOUND MINDER" + r.getID());
+                    //    }
+                    //}
+                }
+            }
+        }
+        broadcastNumMiners();
+    }
+
+    static void updateMinerLocalMap() throws GameActionException {
+        // building map. take all locations in sight, sense elevation and flooded, put info in map
+        // miner can sense 109 loc, including its own loc. 109 = 7+9+(11*7)+9+7
+        int myX = myLoc.x;
+        int myY = myLoc.y;
+        // gonna traverse vision radius, starting at top left.
+        // TODO: 1/19/2020 stop wasting 12 executions of the loop in the corners outside the vision radius
+        int startCheckLocX = myLoc.x - 5;
+        int startCheckLocY = myLoc.y + 5;
+        int checkLocX;
+        int checkLocY = startCheckLocY; // don't need to reset this one like with checkLocX, but maybe we will?
+        MapLocation checkThisMapLoc;
+        int elevation;
+        long pieceOfMap = 0; // 0b 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 L
+
+        for (int row = 0; row < 11; row++) {
+            checkLocX = startCheckLocX; // gotta reset and bring it back to the left side.
+
+            for (int col = 0; col < 11; col++) {
+                pieceOfMap = 0;
+
+                // for now, let's check it once and then not check it again
+                if (map[checkLocY][checkLocX] == 0) {
+                    checkThisMapLoc = new MapLocation(checkLocX, checkLocY);
+
+                    if (rc.canSenseLocation(checkThisMapLoc)) {
+                        // flip first bit. as base ten, looks like -9223372036954775808
+                        pieceOfMap |= 0b1000000000000000000000000000000000000000000000000000000000000000L;
+                        if (rc.senseFlooding(checkThisMapLoc)) {    // 31st (from left) bit gets flipped on.
+                            pieceOfMap |= 0b0000000000000000000000000000000100000000000000000000000000000000L;
+                        }
+
+                        elevation = rc.senseElevation(checkThisMapLoc);
+                        System.out.println("elevation: " + elevation + " on [" + checkLocX + ", " + checkLocY);
+
+                        //  so we need 32 zeroes to precede the elevation bit-string, and this makes it work
+                        pieceOfMap |= (0x00000000ffffffffL & elevation);
+                        // System.out.println("[" + checkLocX + ", " + checkLocY + "] is 0b" + Long.toBinaryString(pieceOfMap));
+                    }
+                    map[checkLocY][checkLocX] = pieceOfMap;
+                }
+                checkLocX ++; // IMPORTANT
+            }
+            checkLocY--; // IMPORTANT
+        }
+    }
+
+    /*
+     * FIRST: mine updates the map, unitlocation txs, numminers txs, souplocation txs, and checkIfSoupGone
+     * SECOND: check if need to build amazon. build amazon.
+     * THIRD: deposit soup in all directions
+     * FOURTH: mine soup in all directions
+     * FIFTH: move. see below (should turn it into a separate func)
+     */
+    static void runMiner() throws GameActionException {
+        updateMinerLocalMap();
+        updateUnitLocations();
+        updateNumMiners();
+        updateSoupLocations();
+        checkIfSoupGone();
+
+
+        boolean amIAmazonBuilder = false;
+        //first miner gets to build the Amazon
+        if (numMiners == 1) {
+            amIAmazonBuilder = true;
+        }
+
+        if (numMiners >= MINER_LIMIT && amIAmazonBuilder) {
+            for (Direction dir : directions) {
+                tryBuild(RobotType.FULFILLMENT_CENTER, dir);
             }
         }
 
-        hqBroadcastNumMiners(numMiners);
-
-    }
-
-    static void hqBroadcastNumMiners(int numMiners) throws GameActionException {
-        int[] message = new int[7];
-        message[0] = teamSecret;
-        message[1] = 3;
-        message[2] = 7;
-        message[3] = numMiners;
-        if (rc.canSubmitTransaction(message, 3)) {
-            rc.submitTransaction(message, 3);
-            System.out.println("broadcast miner!");
-        }
-    }
-
-
-    static void runMiner() throws GameActionException {
-        updateArmyInfo();
-        updateSoupLocations();
-        checkIfSoupGone();
-        System.out.println("numMiners: " + numMiners);
-
-        myLoc = rc.getLocation();
-        System.out.println("numMiners from miner" + numMiners);
-        if (myLoc.distanceSquaredTo(hqLoc) >= 16 && numMiners >= 3 && amazonLocations.size() <=1) {
-            tryBuild(RobotType.FULFILLMENT_CENTER, randomDirection());
-        }
-
         // TODO: 1/12/2020 maybe have the first priority be: run away from flood?
-        // Better to deposit soup instead of refining
+
+        // TODO: 1/19/2020 take up less bytecode with math. canDepositSoup is 10 bytecode 
         for (Direction dir : directions) {
             if (rc.canDepositSoup(dir)) {
                 rc.depositSoup(dir, rc.getSoupCarrying());
@@ -178,17 +246,18 @@ public strictfp class RobotPlayer {
         }
 
         // then, try to mine soup in all directions
+        // TODO: 1/19/2020 same thing, canMineSoup (in tryBuild) takes up 5 bytecode
         for (Direction dir : directions)
             if (tryMine(dir)) {
                 System.out.println("I mined soup! " + rc.getSoupCarrying());
                 MapLocation soupLoc = rc.getLocation().add(dir);
                 if (hqLoc.distanceSquaredTo(soupLoc) > 25) {
                     if (tryBuild(RobotType.REFINERY, randomDirection())) {
-                        broadcastBuildingCreation(RobotType.REFINERY, rc.adjacentLocation(dir.opposite()));
+                        broadcastUnitCreation(RobotType.REFINERY, rc.adjacentLocation(dir.opposite()));
                     }
                 }
                 if (!soupLocations.contains(soupLoc)) {
-                    broadcastSoupLocation(soupLoc);
+                    broadcastSoupLocation(soupLoc, true);
                 }
             }
 
@@ -197,6 +266,7 @@ public strictfp class RobotPlayer {
         // if at soup limit, go to nearest refinery or hq.
         // if hq or refinery is far away, build a refinery.
         // if there are less than MINERLIMIT miners, tell hq to pause building miners????
+
         if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
             System.out.println("I'm full of soup");
 
@@ -256,6 +326,36 @@ public strictfp class RobotPlayer {
         }
     }
 
+    static void runFulfillmentCenter() throws GameActionException {
+        if (numDrones < 1) {
+            for (Direction dir : directions) {
+                if (tryBuild(RobotType.DELIVERY_DRONE, dir)) {
+                    numDrones++;
+                }
+            }
+        }
+    }
+
+    static MapLocation somePlace;
+
+    static void runDeliveryDrone() throws GameActionException {
+        if (somePlace == null) {
+            System.out.println("finding somePlace");
+
+            boolean onLeftSide = hqLoc.x < (rc.getMapWidth() / 2);
+            boolean onLowerSide = hqLoc.y < (rc.getMapHeight() / 2);
+
+            if (onLeftSide) {
+                somePlace = new MapLocation(rc.getMapWidth() - hqLoc.x, hqLoc.y);
+            } else {
+                somePlace = new MapLocation(hqLoc.x - rc.getMapWidth(), hqLoc.y);
+            }
+        }
+        if (!tryMove(myLoc.directionTo(hqLoc).opposite())) {
+            System.out.println("cant move");
+        }
+    }
+
     // tries to move in the general direction of dir
     // THIS IS WHERE I WORK ON PATHFINDING - jm
     static boolean goTo(Direction dir) throws GameActionException {
@@ -286,9 +386,11 @@ public strictfp class RobotPlayer {
     static void checkIfSoupGone() throws GameActionException {
         if (soupLocations.size() > 0) {
             MapLocation targetSoupLoc = soupLocations.get(0);
-            if (rc.canSenseLocation(targetSoupLoc)
-                    && rc.senseSoup(targetSoupLoc) == 0) {
+            // TODO: 1/19/2020 we could make this less bytecode by not running canSenseLocation and doing math instead
+            // unless, of course, the math takes up more bytecode (math = if (-5 <= targetSoupLoc.x - myLoc.x <= 5) and same for y
+            if (rc.canSenseLocation(targetSoupLoc) && rc.senseSoup(targetSoupLoc) == 0) {
                 soupLocations.remove(0);
+                broadcastSoupLocation(targetSoupLoc, false);
             }
         }
     }
@@ -346,28 +448,7 @@ public strictfp class RobotPlayer {
      */
     static boolean tryBuild(RobotType type, Direction dir) throws GameActionException {
         if (rc.isReady() && rc.canBuildRobot(type, dir)) {
-            System.out.println("trying to build " + type);
             rc.buildRobot(type, dir);
-            // adds to array list in broadcastBuildingCreation
-            broadcastBuildingCreation(type, rc.getLocation().add(dir));
-            return true;
-        } else return false;
-    }
-
-    /**
-     * Attempts to build a given robot in a given direction.
-     *
-     * @param type The type of the robot to build
-     * @param dir  The intended direction of movement
-     * @return true if a move was performed
-     * @throws GameActionException
-     * @overload
-     */
-    static boolean tryBuild(RobotType type, Direction dir, int numUnits) throws GameActionException {
-        if (rc.isReady() && rc.canBuildRobot(type, dir)) {
-            System.out.println("trying to build " + type);
-            rc.buildRobot(type, dir);
-            broadcastUnitCreation(type, numUnits);
             return true;
         } else return false;
     }
@@ -400,33 +481,44 @@ public strictfp class RobotPlayer {
         } else return false;
     }
 
-    /**************************************************************************************************
-     * SIMPLE BLOCKCHAIN
-     * soup has id of 2, hq has id of HQID, unit has id of 3, building has id of 4
-     *
-     */
 
-    public static void broadcastSoupLocation(MapLocation loc) throws GameActionException {
+    public static void broadcastSoupLocation(MapLocation loc, boolean present) throws GameActionException {
         int[] message = new int[7];
         message[0] = teamSecret;
         message[1] = 2;
         message[2] = loc.x; // x coord of HQ
         message[3] = loc.y; // y coord of HQ
+        message[4] = present ? 1 : 0;
         if (rc.canSubmitTransaction(message, 3)) {
             rc.submitTransaction(message, 3);
             System.out.println("new soup!" + loc);
         }
     }
 
+    // used by miners only, for now
     public static void updateSoupLocations() throws GameActionException {
-        for (Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
+        // if its just been created, go through all of the blocks and transactions to find soup
+        if (turnCount == 1) {
+            for (int i = 1; i < rc.getRoundNum(); i++) {
+                crawlBlockForSoupLocations(i);
+            }
+        }
+        crawlBlockForSoupLocations(rc.getRoundNum() - 1);
+    }
+
+    public static void crawlBlockForSoupLocations(int roundNum) throws GameActionException {
+        for (Transaction tx : rc.getBlock(roundNum)) {
             int[] mess = tx.getMessage();
-            if (mess[0] == teamSecret && mess[1] == 2) {
-                System.out.println("heard about a tasty new soup location");
+            if (mess[0] == teamSecret && mess[1] == 2 && mess[4] == 1) {
+                System.out.println("new soup [" + mess[2] + ", " + mess[3] + "]");
                 soupLocations.add(new MapLocation(mess[2], mess[3]));
+            } else if (mess[0] == teamSecret && mess[1] == 2 && mess[4] == 0) {
+                System.out.println("removing soupLoc [" + mess[2] + ", " + mess[3] + "]");
+                soupLocations.removeIf(currentSoupLoc -> currentSoupLoc.x == mess[2] && currentSoupLoc.y == mess[3]);
             }
         }
     }
+
 
     public static void sendHqLoc(MapLocation loc) throws GameActionException {
         int[] message = new int[7];
@@ -450,67 +542,60 @@ public strictfp class RobotPlayer {
         }
     }
 
-    // only used by hq, design center, and fulfillment center... until we decide how we're going to manage cows
-    //
-    public static void broadcastUnitCreation(RobotType type, int numUnits) throws GameActionException {
+    // to be only used by hq
+    public static void broadcastNumMiners() throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret;
+        message[1] = 5;
+        message[2] = numMiners;
+        if (rc.canSubmitTransaction(message, 3)) {
+            rc.submitTransaction(message, 3);
+            System.out.println("broadcast mines num: " + numMiners);
+        }
+    }
+
+    public static void updateNumMiners() throws GameActionException {
+        for (Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
+            int[] mess = tx.getMessage();
+            if (mess[0] == teamSecret && mess[1] == 5) {
+                numMiners = mess[2];
+                System.out.println("update numMiners " + numMiners);
+            }
+        }
+    }
+
+    public static void broadcastUnitCreation(RobotType type, MapLocation loc) throws GameActionException {
         int typeNumber;
         switch (type) {
             case COW:
                 typeNumber = 1;
-                numCows++;
                 break;
             case DELIVERY_DRONE:
                 typeNumber = 2;
-                numDrones++;
                 break;
-            case LANDSCAPER:
-                typeNumber = 6;
-                numLandscapers++;
-                break;
-            case MINER:
-                typeNumber = 7;
-                numMiners++;
-                break;
-            default:
-                typeNumber = 0;
-                break;
-        }
-        int[] message = new int[7];
-        message[0] = teamSecret;
-        message[1] = 3;
-        message[2] = typeNumber;
-        message[3] = numUnits;
-        if (rc.canSubmitTransaction(message, 3)) {
-            rc.submitTransaction(message, 3);
-            System.out.println("new unit!");
-        }
-    }
-
-    // only used by miners
-    public static void broadcastBuildingCreation(RobotType type, MapLocation loc) throws GameActionException {
-        int typeNumber;
-        switch (type) {
             case DESIGN_SCHOOL:
                 typeNumber = 3;
-                designSchoolLocations.add(loc);
                 break;
             case FULFILLMENT_CENTER:
                 typeNumber = 4;
-                amazonLocations.add(loc);
                 break;
             case HQ:
                 typeNumber = 5;
+                break;
+            case LANDSCAPER:
+                typeNumber = 6;
+                break;
+            case MINER:
+                typeNumber = 7;
                 break;
             case NET_GUN:
                 typeNumber = 8;
                 break;
             case REFINERY:
                 typeNumber = 9;
-                refineryLocations.add(loc);
                 break;
             case VAPORATOR:
                 typeNumber = 10;
-                vaporatorLocations.add(loc);
                 break;
             default:
                 typeNumber = 0;
@@ -525,16 +610,16 @@ public strictfp class RobotPlayer {
         message[4] = typeNumber;
         if (rc.canSubmitTransaction(message, 3)) {
             rc.submitTransaction(message, 3);
-            System.out.println("new building!" + loc);
+            System.out.println("new refinery!" + loc);
         }
     }
 
-    // checks if message[1] is 3 (units) or 4 (buildings)
-    public static void updateArmyInfo() throws GameActionException {
+
+    public static void updateUnitLocations() throws GameActionException {
         for (Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
             int[] mess = tx.getMessage();
             if (mess[0] == teamSecret && mess[1] == 4) {
-                System.out.println("heard about a new building");
+                System.out.println("heard about a new unit");
                 switch (mess[4]) {
                     case 3:
                         designSchoolLocations.add(new MapLocation(mess[2], mess[3]));
@@ -551,27 +636,7 @@ public strictfp class RobotPlayer {
                     default:
                         break;
                 }
-            }
 
-            if (mess[0] == teamSecret && mess[1] == 3) {
-                System.out.println("heard about a new unit");
-                switch (mess[2]) {
-                    case 1:
-                        /* something about a cow. moo my ass */
-                        break;
-                    case 2:
-                        numDrones = mess[3];
-                        break;
-                    case 6:
-                        numLandscapers = mess[3];
-                        break;
-                    case 7:
-                        numMiners = mess[3];
-                        break;
-                    default:
-                        break;
-
-                }
             }
         }
     }
