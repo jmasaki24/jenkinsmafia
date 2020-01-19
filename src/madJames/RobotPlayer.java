@@ -208,13 +208,7 @@ public strictfp class RobotPlayer {
         }
     }
 
-    /*
-     * FIRST: mine updates the map, unitlocation txs, numminers txs, souplocation txs, and checkIfSoupGone
-     * SECOND: check if need to build amazon. build amazon.
-     * THIRD: deposit soup in all directions
-     * FOURTH: mine soup in all directions
-     * FIFTH: move. see below (should turn it into a separate func)
-     */
+
     static void runMiner() throws GameActionException {
         updateMinerLocalMap();
         updateUnitLocations();
@@ -495,7 +489,7 @@ public strictfp class RobotPlayer {
         }
     }
 
-    // used by miners only, for now
+
     public static void updateSoupLocations() throws GameActionException {
         // if its just been created, go through all of the blocks and transactions to find soup
         if (turnCount == 1) {

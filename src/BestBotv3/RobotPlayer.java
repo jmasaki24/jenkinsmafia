@@ -34,6 +34,7 @@ public strictfp class RobotPlayer {
         }
 
         while(true) {
+            turnCount++;
             try {
                 me.takeTurn();
 

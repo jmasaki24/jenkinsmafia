@@ -12,6 +12,14 @@ public class Miner extends Unit {
         super(r);
     }
 
+    /*
+     * FIRST: mine updates the map, unitlocation txs, numminers txs, souplocation txs, and checkIfSoupGone
+     * SECOND: check if need to build amazon. build amazon.
+     * THIRD: deposit soup in all directions
+     * FOURTH: mine soup in all directions
+     * FIFTH: move. see below (should turn it into a separate func)
+     */
+
     public void takeTurn() throws GameActionException {
         super.takeTurn();
 
@@ -121,6 +129,8 @@ public class Miner extends Unit {
             }
         }
     }
+
+
 
     /**
      * Attempts to mine soup in a given direction.
