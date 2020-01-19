@@ -28,22 +28,21 @@ public class Miner extends Unit {
         comms.updateSoupLocations(soupLocations);
         checkIfSoupGone();
 
-        //Build 1 school when summoned into a specific position by HQ and after move away
+        // TODO: 1/19/2020 Fix how the miners build design schools so its foolproof
+        // Build 1 school when summoned into a specific position by HQ and after move away
         System.out.println(turnCount);
         if(turnCount <= 11){
             System.out.println(hqLoc.distanceSquaredTo(myLoc));
             if(myLoc.directionTo(hqLoc) == Direction.NORTHEAST && myLoc.distanceSquaredTo(hqLoc) == 2){
                 System.out.println("Trybuild school");
                 tryBuild(RobotType.DESIGN_SCHOOL,Direction.NORTH);
+                numDesignSchools = 1;
             }
         }
 
         // Better to deposit soup while you can
         for (Direction dir : Util.directions) {
-            if (rc.canDepositSoup(dir)) {
-                rc.depositSoup(dir, rc.getSoupCarrying());
-                System.out.println("Deposited soup into new refinery");
-            }
+            tryRefine(dir);
         }
 
         // then, try to mine soup in all directions
@@ -72,18 +71,33 @@ public class Miner extends Unit {
         // if at soup limit, go to nearest refinery or hq.
         // if hq or refinery is far away, build a refinery.
         // if there are less than MINER LIMIT miners, tell hq to pause building miners????
+
+        //find closest refinery (including hq)
+        MapLocation closestRefineryLoc = hqLoc;
+
+
         if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
             System.out.println("I'm full of soup");
-
-
-            //find closest refinery (including hq, should change that tho since HQ will become unreachable)
-            MapLocation closestRefineryLoc = hqLoc;
-
             //Find Closest Refinery
             if (refineryLocations.size() != 0) {
                 for (MapLocation refinery : refineryLocations) {
                     if (myLoc.distanceSquaredTo(refinery) < myLoc.distanceSquaredTo(closestRefineryLoc)) {
                         closestRefineryLoc = refinery;
+                    }
+                }
+
+
+                // If there is a design school or landscaper of same team, then the miner needs to go away and find another
+                RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared,rc.getTeam());
+                for (RobotInfo robot:robots){
+                    if ((robot.type == RobotType.DESIGN_SCHOOL || robot.type == RobotType.LANDSCAPER) && robot.team == rc.getTeam()) {
+                        System.out.println("I see the design school");
+                        if (rc.getLocation().distanceSquaredTo(hqLoc)<=2){
+                            System.out.println("I am going to try to move away now");
+                            closestRefineryLoc = null;
+                            System.out.println(refineryLocations);
+                            rc.move(rc.getLocation().directionTo(hqLoc).opposite());
+                        }
                     }
                 }
             }
@@ -110,7 +124,6 @@ public class Miner extends Unit {
                 nav.goTo(soupLocations.get(0));
             } else {
                 System.out.println("I'm searching for soup, moving away from other miners");
-                RobotInfo[] robots = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared,rc.getTeam());
                 MapLocation nextPlace = rc.getLocation();
                 for (RobotInfo robot:robots){
                     if (robot.type == RobotType.MINER){
