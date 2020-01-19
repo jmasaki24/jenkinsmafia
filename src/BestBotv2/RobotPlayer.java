@@ -160,7 +160,7 @@ public strictfp class RobotPlayer {
                 }
             }
             if(robots.length == 0){
-                nextPlace.add(randomDirection());
+                nextPlace = nextPlace.add(randomDirection());
             }
             if(nextPlace != rc.getLocation()) {
                 if(myLoc.add(myLoc.directionTo(nextPlace)).distanceSquaredTo(hqLoc) < 3) { //Only move in directions where you end up on the wall
