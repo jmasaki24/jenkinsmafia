@@ -27,7 +27,7 @@ public class HQ extends Shooter {
         System.out.println("turnCount: " + turnCount);
         if(RobotPlayer.turnCount == 1) {
             comms.sendHqLoc(rc.getLocation());
-            MapLocation[] nearbySoupLocations = this.rc.senseNearbySoup(RobotType.HQ.sensorRadiusSquared);
+            MapLocation[] nearbySoupLocations = rc.senseNearbySoup(RobotType.HQ.sensorRadiusSquared);
             if (nearbySoupLocations.length > 0) {
                 for (MapLocation nearbySoup : nearbySoupLocations) {
                     comms.broadcastSoupLocation(nearbySoup);
