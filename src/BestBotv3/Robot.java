@@ -6,7 +6,6 @@ public class Robot {
     RobotController rc;
     Communications comms;
 
-    int turnCount = 0;
 
     public Robot(RobotController r) {
         this.rc = r;
@@ -14,7 +13,6 @@ public class Robot {
     }
 
     public void takeTurn() throws GameActionException {
-        turnCount += 1;
     }
 
     /**
