@@ -16,6 +16,12 @@ public class HQ extends Shooter {
         if(turnCount == 1) {
             comms.sendHqLoc(rc.getLocation());
         }
+
+        //Every 3 turns repeat messages
+        if(turnCount % 3 == 0){
+            comms.jamEnemyComms();
+        }
+
         if(numMiners < 6) {
             for (Direction dir : Util.directions)
                 if(tryBuild(RobotType.MINER, dir)){

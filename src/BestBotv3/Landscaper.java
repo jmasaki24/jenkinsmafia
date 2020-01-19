@@ -19,7 +19,7 @@ public class Landscaper extends Unit {
 
         //Wait 15 turns to build
         if (turnCount > 50) {
-            for (int i = 0; i < 8; i++){ //8 times per turn
+            for (int i = 0; i < 8; i++) {
                 MapLocation bestPlaceToBuildWall = null;
                 // find best place to build
                 if (hqLoc != null) {
