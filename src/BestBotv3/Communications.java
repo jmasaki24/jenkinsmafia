@@ -3,12 +3,13 @@ package BestBotv3;
 import battlecode.common.*;
 import jdk.nashorn.internal.ir.Block;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 public class Communications {
     RobotController rc;
 
-    final int teamSecret = 444444444;
+    final int teamSecret = 911911911;
 
     final int HQID = 0;
     final int EHQID = 232455;
@@ -111,9 +112,21 @@ public class Communications {
         }
     }
 
+    // used by miners only, for now
     public void updateSoupLocations(ArrayList<MapLocation> soupLocations) throws GameActionException {
+        // if its just been created, go through all of the blocks and transactions to find soup
+        if (RobotPlayer.turnCount == 1) {
+            for (int i = 1; i< rc.getRoundNum(); i++) {
+                crawlBlockchainForSoupLocations(soupLocations, i);
+            }
+        } else {
+            crawlBlockchainForSoupLocations(soupLocations, rc.getRoundNum() - 1);
+        }
 
-        for(Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
+    }
+
+    public void crawlBlockchainForSoupLocations(ArrayList<MapLocation> soupLocations, int roundNum) throws GameActionException {
+        for(Transaction tx : rc.getBlock(roundNum)) {
             int[] mess = tx.getMessage();
             if(mess[0] == teamSecret && mess[1] == 2){
                 // TODO: don't add duplicate locations

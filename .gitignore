@@ -21,6 +21,9 @@ build/*
 *.iws
 /.idea/
 
+version.txt
+gradle.properties
+
 
 # User-specific stuff:
 battlecode-scaffold.iws

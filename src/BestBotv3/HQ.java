@@ -2,8 +2,18 @@ package BestBotv3;
 
 import battlecode.common.*;
 
+/*
+ * FIRST FEW ROUNDS STRATEGY
+ * Build 4 miners, start refining soup in HQ
+ * Build Amazon, drone. Drone is on standby (hover near HQ, wait for enemy units)
+ * Build design school
+ * Build refinery (if there isn’t already one)
+ * build 2 landscapers
+ */
+
 public class HQ extends Shooter {
     static int numMiners = 0;
+    public static final int MINER_LIMIT = 4;
 
     public HQ(RobotController r) throws GameActionException {
         super(r);
@@ -11,10 +21,18 @@ public class HQ extends Shooter {
     }
 
     public void takeTurn() throws GameActionException {
-        super.takeTurn();
+        System.out.println(rc.getLocation());
 
-        if(turnCount == 1) {
+        super.takeTurn();
+        System.out.println("turnCount: " + turnCount);
+        if(RobotPlayer.turnCount == 1) {
             comms.sendHqLoc(rc.getLocation());
+            MapLocation[] nearbySoupLocations = this.rc.senseNearbySoup(RobotType.HQ.sensorRadiusSquared);
+            if (nearbySoupLocations.length > 0) {
+                for (MapLocation nearbySoup : nearbySoupLocations) {
+                    comms.broadcastSoupLocation(nearbySoup);
+                }
+            }
         }
 
         //Every 3 turns repeat messages
@@ -22,7 +40,7 @@ public class HQ extends Shooter {
             comms.jamEnemyComms();
         }
 
-        if(numMiners < 6) {
+        if(numMiners < MINER_LIMIT) {
             for (Direction dir : Util.directions)
                 if(tryBuild(RobotType.MINER, dir)){
                     numMiners++;
